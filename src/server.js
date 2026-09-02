@@ -12,10 +12,12 @@ import { PromptLibrary } from './audio/prompt-library.js';
 import { loadCampaign } from './brain/campaign.js';
 import { allPromptNames } from './brain/audio-map.js';
 import { CallSession } from './call/session.js';
+import { LeadRunner } from './runner/lead-runner.js';
 
 assertRuntimeConfig();
 
 const campaign = loadCampaign();
+const runner = new LeadRunner();
 const library = new PromptLibrary();
 try {
   library.loadDir(config.prompts.dir);
@@ -25,7 +27,7 @@ try {
 const missing = allPromptNames().filter((n) => !library.has(n));
 if (missing.length) logger.warn({ missing }, 'prompt files referenced by audio-map are missing');
 
-const app = createHttpApp();
+const app = createHttpApp({ runner });
 const server = createServer(app);
 
 attachMediaStream(server, (stream) => {
@@ -57,6 +59,7 @@ attachMediaStream(server, (stream) => {
         if (summary.finalDisposition === 'DNC' && phone) markDnc(phone);
         if (summary.transferred) counters.transfers++;
         counters.callsCompleted++;
+        runner.onCallComplete(callSid);
         logger.info({ callSid, ...summary, durationS }, 'call finished');
       },
     },
@@ -71,6 +74,8 @@ server.listen(config.http.port, () => {
     { port: config.http.port, publicHost: config.http.publicHost, campaign: campaign.campaign, env: config.env },
     'b2b-outreach-bot listening',
   );
+  if (config.runner.autostart) runner.start();
+  else logger.info('lead runner idle — POST /runner/start (X-Control-Token) or set RUNNER_AUTOSTART=true');
 });
 
 for (const sig of ['SIGINT', 'SIGTERM']) {

@@ -53,6 +53,8 @@ export const config = {
 
   runner: {
     maxConcurrent: num(process.env.MAX_CONCURRENT_CALLS, 4),
+    autostart: bool(process.env.RUNNER_AUTOSTART, false),
+    controlToken: process.env.CONTROL_TOKEN || '',
   },
 
   logLevel: process.env.LOG_LEVEL || 'info',
