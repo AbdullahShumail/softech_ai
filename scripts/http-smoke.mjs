@@ -1,5 +1,5 @@
-// Manual smoke: boots the app on a random port with dummy creds, hits the routes.
-// Run: node test/http-smoke.mjs
+// Manual smoke: boots the app with dummy creds on port 8177, hits the routes.
+// Run: npm run smoke   (kept out of test/ so `node --test` doesn't boot a server)
 process.env.TWILIO_ACCOUNT_SID ||= 'ACtest';
 process.env.TWILIO_AUTH_TOKEN ||= 'tok';
 process.env.TWILIO_FROM_NUMBER ||= '+15550000000';

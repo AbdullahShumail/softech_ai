@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "node --test",
+    "smoke": "node scripts/http-smoke.mjs",
     "migrate": "node src/data/migrate.js"
   },
   "engines": {
