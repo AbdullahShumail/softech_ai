@@ -8,13 +8,15 @@ See [docs/PHASE1-PLAN.md](docs/PHASE1-PLAN.md) for scope, module map, and build 
 
 ## Status
 
-Phase 1. Done: config, SQLite, logging, µ-law codec, Twilio Media Streams transport
-(echo smoke test), WAV→µ-law prompt library, playback engine (mark-tracked, `clear`
-on barge-in). Not yet: STT, classifier, logic engine, barge-in detection, transfer,
-lead runner.
+Phase 1. Done: full inbound→outbound turn loop —
+Twilio Media Streams ⇄ µ-law codec ⇄ energy VAD ⇄ Groq Whisper STT ⇄ text gates ⇄
+Groq Llama classifier ⇄ 3-turn logic engine ⇄ mark-tracked WAV playback with
+`clear`-on-barge-in ⇄ Twilio REST transfer/hangup ⇄ SQLite + per-call JSON logs.
+48 tests. Not yet: lead runner (CSV dialer), TLS/deploy, real prompt WAVs.
 
-Drop 8 kHz (or any-rate) mono WAV prompts into `prompts/b2b-outreach/`; they're
-converted to µ-law and held in memory at boot, keyed by filename.
+Drop 8 kHz (or any-rate) mono WAV prompts into `prompts/b2b-outreach/` — converted
+to µ-law and held in memory at boot, keyed by filename. Required names are logged
+at startup (`prompt files referenced by audio-map are missing`).
 
 ## Setup
 

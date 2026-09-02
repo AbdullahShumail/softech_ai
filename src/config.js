@@ -38,6 +38,10 @@ export const config = {
     name: process.env.CAMPAIGN || 'b2b-outreach',
   },
 
+  logs: {
+    callDir: process.env.CALL_LOG_DIR || './logs/calls',
+  },
+
   transfer: {
     closerNumber: process.env.CLOSER_NUMBER || '',
   },
