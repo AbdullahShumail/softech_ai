@@ -8,15 +8,19 @@ See [docs/PHASE1-PLAN.md](docs/PHASE1-PLAN.md) for scope, module map, and build 
 
 ## Status
 
-Phase 1. Done: full inbound→outbound turn loop —
-Twilio Media Streams ⇄ µ-law codec ⇄ energy VAD ⇄ Groq Whisper STT ⇄ text gates ⇄
-Groq Llama classifier ⇄ 3-turn logic engine ⇄ mark-tracked WAV playback with
-`clear`-on-barge-in ⇄ Twilio REST transfer/hangup ⇄ SQLite + per-call JSON logs.
-48 tests. Not yet: lead runner (CSV dialer), TLS/deploy, real prompt WAVs.
+**Phase 1 code-complete.** Full turn loop: Twilio Media Streams ⇄ µ-law codec ⇄
+energy VAD ⇄ Groq Whisper STT ⇄ text gates ⇄ Groq Llama classifier ⇄ 3-turn logic
+engine ⇄ mark-tracked WAV playback with `clear`-on-barge-in ⇄ Twilio REST
+transfer/hangup ⇄ CSV lead runner (concurrency cap, per-lead calling hours) ⇄
+SQLite + per-call JSON logs + retention prune. 55 tests, `node --test`.
 
-Drop 8 kHz (or any-rate) mono WAV prompts into `prompts/b2b-outreach/` — converted
-to µ-law and held in memory at boot, keyed by filename. Required names are logged
-at startup (`prompt files referenced by audio-map are missing`).
+**Left to do (needs you):** Twilio + Groq creds, a TLS domain on the VM, the 22
+prompt WAVs, deploy, one supervised end-to-end call. See
+[docs/GO-LIVE-CHECKLIST.md](docs/GO-LIVE-CHECKLIST.md) and
+[docs/DEPLOY-HETZNER.md](docs/DEPLOY-HETZNER.md).
+
+Drop 8 kHz (or any-rate) mono WAV prompts into `prompts/b2b-outreach/` — see
+[docs/PROMPTS.md](docs/PROMPTS.md). Missing names are logged at startup.
 
 ## Setup
 
