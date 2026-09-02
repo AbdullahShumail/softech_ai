@@ -30,6 +30,10 @@ export const config = {
     path: process.env.DB_PATH || './data/bot.db',
   },
 
+  prompts: {
+    dir: process.env.PROMPT_DIR || './prompts/b2b-outreach',
+  },
+
   transfer: {
     closerNumber: process.env.CLOSER_NUMBER || '',
   },

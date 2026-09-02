@@ -8,9 +8,13 @@ See [docs/PHASE1-PLAN.md](docs/PHASE1-PLAN.md) for scope, module map, and build 
 
 ## Status
 
-Phase 1, scaffold. Done: config, SQLite, logging, µ-law codec, Twilio Media Streams
-transport (echo smoke test). Not yet: STT, classifier, logic engine, playback pacer,
-barge-in, transfer, lead runner.
+Phase 1. Done: config, SQLite, logging, µ-law codec, Twilio Media Streams transport
+(echo smoke test), WAV→µ-law prompt library, playback engine (mark-tracked, `clear`
+on barge-in). Not yet: STT, classifier, logic engine, barge-in detection, transfer,
+lead runner.
+
+Drop 8 kHz (or any-rate) mono WAV prompts into `prompts/b2b-outreach/`; they're
+converted to µ-law and held in memory at boot, keyed by filename.
 
 ## Setup
 
