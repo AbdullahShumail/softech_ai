@@ -1,0 +1,30 @@
+{
+  "name": "b2b-outreach-bot",
+  "version": "0.1.0",
+  "description": "Outbound B2B voice bot — Twilio Media Streams + Groq STT + pre-recorded response library",
+  "type": "module",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test",
+    "migrate": "node src/data/migrate.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.8.0",
+    "dotenv": "^16.4.7",
+    "express": "^4.21.2",
+    "openai": "^4.77.0",
+    "pino": "^9.6.0",
+    "twilio": "^5.4.0",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "pino-pretty": "^13.0.0"
+  },
+  "license": "UNLICENSED",
+  "private": true
+}
