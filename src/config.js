@@ -40,6 +40,7 @@ export const config = {
 
   logs: {
     callDir: process.env.CALL_LOG_DIR || './logs/calls',
+    retentionDays: num(process.env.CALL_LOG_RETENTION_DAYS, 30),
   },
 
   transfer: {

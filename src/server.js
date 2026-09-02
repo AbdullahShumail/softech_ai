@@ -5,6 +5,7 @@ import { counters } from './obs/health.js';
 import './data/db.js'; // opens DB + runs idempotent migrations
 import { startCall, recordTurn, finalizeCall, markDnc } from './data/call-repo.js';
 import { CallLog } from './obs/call-log.js';
+import { scheduleCallLogPrune } from './obs/log-prune.js';
 import { createHttpApp } from './telephony/twiml-http.js';
 import { attachMediaStream } from './telephony/media-stream.js';
 import { transferToCloser, hangup } from './telephony/twilio-rest.js';
@@ -74,6 +75,7 @@ server.listen(config.http.port, () => {
     { port: config.http.port, publicHost: config.http.publicHost, campaign: campaign.campaign, env: config.env },
     'b2b-outreach-bot listening',
   );
+  scheduleCallLogPrune(config.logs.callDir, config.logs.retentionDays);
   if (config.runner.autostart) runner.start();
   else logger.info('lead runner idle — POST /runner/start (X-Control-Token) or set RUNNER_AUTOSTART=true');
 });

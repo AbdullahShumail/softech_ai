@@ -1,0 +1,9 @@
+# Caddy reverse proxy — terminates TLS and forwards HTTP + WebSocket to the bot.
+# Put your real hostname here; Caddy fetches the certificate automatically.
+# Twilio connects INBOUND to wss://bot.example.com/media, so this host must be
+# publicly resolvable and reachable on 443.
+
+bot.example.com {
+    encode zstd gzip
+    reverse_proxy 127.0.0.1:8080
+}
