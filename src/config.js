@@ -34,6 +34,10 @@ export const config = {
     dir: process.env.PROMPT_DIR || './prompts/b2b-outreach',
   },
 
+  campaign: {
+    name: process.env.CAMPAIGN || 'b2b-outreach',
+  },
+
   transfer: {
     closerNumber: process.env.CLOSER_NUMBER || '',
   },

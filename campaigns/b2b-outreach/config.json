@@ -1,0 +1,36 @@
+{
+  "campaign": "b2b-outreach",
+  "displayName": "B2B Software Modernization Outreach",
+  "agentName": "Alex",
+  "companyName": "SofTech AI",
+  "offering": "custom software, modern websites, and cross-platform mobile apps",
+  "objective": "Reach the owner or decision maker at a business with a dated web/digital presence, deliver a short modernization pitch, handle objections, and transfer interested decision makers to a senior consultant.",
+  "identityLine": "This is an automated call from SofTech AI. We build modern websites and business software.",
+  "audio": {
+    "basePath": "prompts/b2b-outreach"
+  },
+  "turnLogic": {
+    "1": { "bulldoze": true, "exceptions": ["DNC", "CB", "TIME", "ABUSE", "AM", "LB", "BOT", "WHO", "R"] },
+    "2": { "bulldoze": true, "exceptions": ["DNC", "CB", "TIME", "ABUSE", "AM", "LB", "QUAL"] },
+    "3": { "bulldoze": false, "maxRebuttals": 3 }
+  },
+  "transfer": {
+    "requires": ["pitchDelivered", "interested", "decisionMaker"]
+  },
+  "crmMapping": {
+    "QUAL": "XFER",
+    "INT": "CALLBACK",
+    "NI": "NI",
+    "HAS": "NI",
+    "HAP": "NI",
+    "BUDGET": "NI",
+    "CB": "CALLBACK",
+    "TIME": "CALLBACK",
+    "NDM": "NDM",
+    "DNC": "DNC",
+    "ABUSE": "NI",
+    "LB": "LB",
+    "AM": "AM",
+    "R": "NI"
+  }
+}
