@@ -5,6 +5,7 @@ import { logger } from '../obs/logger.js';
 import { healthSnapshot } from '../obs/health.js';
 import { lookupCall } from '../runner/registry.js';
 import { mintVoiceToken } from './voice-token.js';
+import { recentCalls, callDetail } from '../data/call-repo.js';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,6 +88,24 @@ export function createHttpApp({ runner } = {}) {
   // Brand mark, also used as the favicon. The call page inlines the same SVG.
   app.get('/logo.svg', (_req, res) => {
     res.type('image/svg+xml').send(readFileSync(join(here, '../../public/logo.svg'), 'utf8'));
+  });
+
+  // Call log viewer — same token gate as /call.
+  app.get('/logs', (req, res) => {
+    if (!checkKey(req, res)) return;
+    res.type('html').send(readFileSync(join(here, '../../public/logs.html'), 'utf8'));
+  });
+
+  app.get('/api/calls', (req, res) => {
+    if (!checkKey(req, res)) return;
+    res.json({ calls: recentCalls(Number(req.query.limit) || 40), counters: healthSnapshot() });
+  });
+
+  app.get('/api/calls/:sid', (req, res) => {
+    if (!checkKey(req, res)) return;
+    const detail = callDetail(req.params.sid);
+    if (!detail) return res.status(404).json({ error: 'no such call' });
+    res.json(detail);
   });
 
   app.get('/token', (req, res) => {

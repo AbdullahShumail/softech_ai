@@ -59,3 +59,26 @@ export function markDnc(phone) {
 export function isDnc(phone) {
   return phone ? !!_isDnc.get(phone) : false;
 }
+
+const _recent = db.prepare(
+  `SELECT c.id, c.call_sid, c.started_at, c.ended_at, c.answered, c.final_disposition,
+          c.pitch_delivered, c.transferred, c.duration_s, l.phone, l.company,
+          (SELECT COUNT(*) FROM call_turns t WHERE t.call_id = c.id) AS turn_count
+     FROM calls c LEFT JOIN leads l ON l.id = c.lead_id
+    ORDER BY c.id DESC LIMIT @limit`,
+);
+const _turnsFor = db.prepare(
+  `SELECT turn, transcript, disposition, thought, latency_ms, ts
+     FROM call_turns WHERE call_id = @id ORDER BY id ASC`,
+);
+const _bySid = db.prepare(`SELECT * FROM calls WHERE call_sid = ?`);
+
+export function recentCalls(limit = 40) {
+  return _recent.all({ limit });
+}
+
+export function callDetail(callSid) {
+  const call = _bySid.get(callSid);
+  if (!call) return null;
+  return { ...call, turns: _turnsFor.all({ id: call.id }) };
+}

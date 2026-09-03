@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Softech AI — Call Logs</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
+<style>
+  :root{
+    --orange:#ff5500; --orange-dk:#e04b00; --orange-tint:#fff3ed;
+    --bg:#f2f2f2; --card:#ffffff; --line:#e3e3e3;
+    --ink:#1f1f1f; --dim:#696969; --faint:#8f8f8f;
+    --ok:#2e9e4f; --stop:#d13438; --blue:#1976d2;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);padding:24px;
+       font:14px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+  .wrap{max-width:1000px;margin:0 auto}
+  .brand{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+  .brand .mark{height:34px;width:34px;flex:none;display:block}
+  .brand .name{font-weight:700;font-size:16px;letter-spacing:-.2px}
+  .brand .name span{display:block;font-weight:400;font-size:12px;color:var(--faint)}
+  .brand .spacer{flex:1}
+  .brand a{color:var(--orange);text-decoration:none;font-weight:600;font-size:13px}
+  .brand a:hover{text-decoration:underline}
+
+  .stats{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}
+  .stat{background:var(--card);border:1px solid var(--line);border-radius:10px;
+        padding:11px 15px;min-width:104px}
+  .stat b{display:block;font-size:20px;font-variant-numeric:tabular-nums}
+  .stat span{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--faint)}
+
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+        box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  table{width:100%;border-collapse:collapse}
+  th{text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.6px;
+     color:var(--faint);font-weight:600;padding:11px 14px;border-bottom:1px solid var(--line);
+     background:#fafafa}
+  td{padding:11px 14px;border-bottom:1px solid #f0f0f0;vertical-align:top}
+  tr.call{cursor:pointer}
+  tr.call:hover{background:var(--orange-tint)}
+  tr.call.open{background:var(--orange-tint)}
+  .sid{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;color:var(--dim)}
+
+  .pill{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11.5px;font-weight:600}
+  .pill.good{background:#e6f4ea;color:#1e7a38}
+  .pill.bad{background:#fdeaea;color:#b3282c}
+  .pill.warn{background:var(--orange-tint);color:#c14300}
+  .pill.mut{background:#eee;color:var(--dim)}
+
+  .detail td{background:#fbfbfb;padding:0}
+  .turns{padding:6px 14px 14px}
+  .turn{display:grid;grid-template-columns:38px 78px 1fr 66px;gap:10px;
+        padding:8px 0;border-bottom:1px dashed #e8e8e8;align-items:start}
+  .turn:last-child{border-bottom:0}
+  .turn .t{color:var(--faint);font-size:12px}
+  .turn .q{font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px}
+  .turn .x{color:var(--ink)}
+  .turn .th{color:var(--faint);font-size:12px;display:block;margin-top:2px}
+  .turn .ms{color:var(--faint);font-size:12px;text-align:right;font-variant-numeric:tabular-nums}
+  .empty{padding:26px 14px;text-align:center;color:var(--faint)}
+  .foot{margin-top:14px;font-size:12px;color:var(--faint);display:flex;gap:14px;align-items:center}
+  .foot label{display:flex;gap:6px;align-items:center;cursor:pointer}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand">
+    <svg class="mark" viewBox="0 0 1500 1500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Softech">
+      <path fill="#FF5500" d="M925.347 369.962C925.347 404.04 962.235 425.338 991.745 408.299L1240.01 264.952C1261.18 252.728 1288.26 259.982 1300.48 281.155L1431.06 507.343C1443.29 528.517 1436.03 555.591 1414.86 567.815L1283.88 643.432C1273.7 649.312 1261.6 650.897 1250.24 647.839L973.955 573.418C923.987 559.959 895.474 628.509 940.245 654.462L1101.19 747.758C1101.64 748.016 1101.64 748.658 1101.19 748.916C1100.75 749.174 1100.75 749.817 1101.19 750.074L1414.86 931.184C1436.03 943.409 1443.29 970.482 1431.06 991.655L1300.48 1217.84C1288.26 1239.02 1261.18 1246.27 1240.01 1234.05L991.745 1090.7C962.235 1073.66 925.347 1094.96 925.347 1129.03V1415.73C925.347 1440.18 905.529 1460 881.082 1460H619.918C595.471 1460 575.653 1440.18 575.653 1415.73V1129.03C575.653 1094.96 538.765 1073.66 509.255 1090.7L260.987 1234.05C239.816 1246.27 212.743 1239.02 200.52 1217.84L69.9378 991.655C57.7145 970.482 64.968 943.408 86.1391 931.184L206.057 861.941C216.241 856.061 228.347 854.475 239.703 857.534L558.057 943.288C608.025 956.747 636.539 888.197 591.768 862.244L399.911 751.029C399.517 750.801 399.519 750.233 399.913 750.006C400.308 749.78 400.308 749.211 399.914 748.983L86.1406 567.816C64.9688 555.591 57.7149 528.517 69.9383 507.344L200.52 281.155C212.744 259.982 239.816 252.728 260.987 264.952L509.256 408.299C538.766 425.338 575.653 404.04 575.653 369.962V83.2679C575.653 58.8194 595.471 39 619.918 39H881.082C905.529 39 925.347 58.8194 925.347 83.2679V369.962Z"/>
+    </svg>
+    <div class="name">Call Logs<span>Softech AI Voice Agent</span></div>
+    <div class="spacer"></div>
+    <a id="callLink" href="#">Make a test call &rarr;</a>
+  </div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th style="width:30%">Call</th><th>When</th><th>Turns</th>
+        <th>Outcome</th><th>Pitch</th><th style="width:70px">Length</th>
+      </tr></thead>
+      <tbody id="rows"><tr><td colspan="6" class="empty">Loading&hellip;</td></tr></tbody>
+    </table>
+  </div>
+
+  <div class="foot">
+    <label><input type="checkbox" id="auto" checked> Auto-refresh every 5s</label>
+    <span id="updated"></span>
+  </div>
+</div>
+
+<script>
+var key = new URLSearchParams(location.search).get('k') || '';
+function $(id){ return document.getElementById(id); }
+var openSid = null, timer = null;
+
+document.getElementById('callLink').href = '/call?k=' + encodeURIComponent(key);
+
+function esc(s){
+  return String(s == null ? '' : s).replace(/[&<>"]/g, function(c){
+    return { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c];
+  });
+}
+function ago(iso){
+  if (!iso) return '-';
+  var t = new Date(iso.replace(' ', 'T') + 'Z').getTime();
+  var s = Math.max(0, Math.floor((Date.now() - t) / 1000));
+  if (s < 60) return s + 's ago';
+  if (s < 3600) return Math.floor(s / 60) + 'm ago';
+  if (s < 86400) return Math.floor(s / 3600) + 'h ago';
+  return Math.floor(s / 86400) + 'd ago';
+}
+function outcomePill(d, transferred){
+  if (transferred) return '<span class="pill good">TRANSFERRED</span>';
+  if (!d) return '<span class="pill mut">in progress</span>';
+  if (d === 'QUAL') return '<span class="pill good">QUAL</span>';
+  if (d === 'DNC' || d === 'ABUSE') return '<span class="pill bad">' + esc(d) + '</span>';
+  if (d === 'HU' || d === 'R') return '<span class="pill mut">' + esc(d) + '</span>';
+  return '<span class="pill warn">' + esc(d) + '</span>';
+}
+
+async function load(){
+  try {
+    var res = await fetch('/api/calls?k=' + encodeURIComponent(key));
+    if (!res.ok) throw new Error(await res.text());
+    var data = await res.json();
+    renderStats(data.counters);
+    await renderRows(data.calls);
+    $('updated').textContent = 'updated ' + new Date().toLocaleTimeString();
+  } catch (err) {
+    $('rows').innerHTML = '<tr><td colspan="6" class="empty">' + esc(err.message) + '</td></tr>';
+  }
+}
+
+function renderStats(c){
+  if (!c) return;
+  var items = [
+    ['Calls', c.callsAnswered], ['Completed', c.callsCompleted],
+    ['Transfers', c.transfers], ['Active', c.activeCalls],
+    ['Errors', c.streamErrors], ['Uptime', Math.floor(c.uptimeS / 60) + 'm'],
+  ];
+  $('stats').innerHTML = items.map(function(i){
+    return '<div class="stat"><b>' + i[1] + '</b><span>' + i[0] + '</span></div>';
+  }).join('');
+}
+
+async function renderRows(calls){
+  if (!calls.length) {
+    $('rows').innerHTML = '<tr><td colspan="6" class="empty">No calls yet &mdash; make one and it will appear here.</td></tr>';
+    return;
+  }
+  var html = '';
+  for (var i = 0; i < calls.length; i++) {
+    var c = calls[i];
+    var isOpen = c.call_sid === openSid;
+    html += '<tr class="call' + (isOpen ? ' open' : '') + '" data-sid="' + esc(c.call_sid) + '">'
+      + '<td><span class="sid">' + esc(c.call_sid.slice(0, 22)) + '</span>'
+      + (c.phone ? '<br>' + esc(c.phone) : '') + (c.company ? ' &middot; ' + esc(c.company) : '') + '</td>'
+      + '<td>' + ago(c.started_at) + '</td>'
+      + '<td>' + c.turn_count + '</td>'
+      + '<td>' + outcomePill(c.final_disposition, c.transferred) + '</td>'
+      + '<td>' + (c.pitch_delivered ? '&#10003;' : '&mdash;') + '</td>'
+      + '<td>' + (c.duration_s != null ? c.duration_s + 's' : '&mdash;') + '</td></tr>';
+    if (isOpen) html += '<tr class="detail"><td colspan="6"><div class="turns" id="turns-' + esc(c.call_sid) + '">Loading&hellip;</div></td></tr>';
+  }
+  $('rows').innerHTML = html;
+
+  Array.prototype.forEach.call(document.querySelectorAll('tr.call'), function(tr){
+    tr.onclick = function(){
+      openSid = (openSid === tr.dataset.sid) ? null : tr.dataset.sid;
+      load();
+    };
+  });
+
+  if (openSid) loadDetail(openSid);
+}
+
+async function loadDetail(sid){
+  var host = $('turns-' + sid);
+  if (!host) return;
+  try {
+    var res = await fetch('/api/calls/' + encodeURIComponent(sid) + '?k=' + encodeURIComponent(key));
+    var d = await res.json();
+    if (!d.turns || !d.turns.length) { host.innerHTML = '<div class="empty">No turns recorded &mdash; the caller never said anything the bot could use.</div>'; return; }
+    host.innerHTML = d.turns.map(function(t){
+      return '<div class="turn">'
+        + '<div class="t">T' + t.turn + '</div>'
+        + '<div class="q">' + esc(t.disposition) + '</div>'
+        + '<div class="x">' + esc(t.transcript || '(nothing transcribed)')
+        + (t.thought ? '<span class="th">' + esc(t.thought) + '</span>' : '') + '</div>'
+        + '<div class="ms">' + (t.latency_ms != null ? t.latency_ms + 'ms' : '') + '</div>'
+        + '</div>';
+    }).join('');
+  } catch (err) {
+    host.innerHTML = '<div class="empty">' + esc(err.message) + '</div>';
+  }
+}
+
+function setAuto(){
+  clearInterval(timer);
+  if ($('auto').checked) timer = setInterval(load, 5000);
+}
+$('auto').onchange = setAuto;
+
+if (!key) {
+  $('rows').innerHTML = '<tr><td colspan="6" class="empty">Missing ?k= token in the URL</td></tr>';
+} else {
+  load();
+  setAuto();
+}
+</script>
+</body>
+</html>
