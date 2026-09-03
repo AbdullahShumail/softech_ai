@@ -1,6 +1,6 @@
 # Deploy — DigitalOcean + Caddy + PM2
 
-Target: one $6 droplet. No FreeSWITCH, no SIP, no local ML — Twilio handles all
+Target: one $12 droplet (2 GB). No FreeSWITCH, no SIP, no local ML — Twilio handles all
 telephony and hands us audio over a WebSocket, so the box only needs port 443 in.
 
 ## 1. Create the droplet
@@ -12,7 +12,7 @@ DigitalOcean → Create → Droplets:
 | Region | **NYC3** (nearest Twilio `us1` edge + Groq's US API) |
 | Image | **Debian 12 x64** |
 | Type | **Basic** → **Regular (SSD)** |
-| Size | **$6/mo — 1 GB / 1 vCPU / 25 GB / 1 TB transfer** |
+| Size | **$12/mo — 2 GB / 1 vCPU / 50 GB / 2 TB transfer** |
 | Authentication | **SSH key** (add yours; skip password auth) |
 | Backups | optional (+20% ≈ $1.20/mo) — the SQLite file is the whole datastore |
 | Monitoring | ✅ (free) |
@@ -180,7 +180,7 @@ cd /opt/softai && git pull && npm ci && npm run migrate && pm2 reload b2b-outrea
 4. **Stream never starts** → Cloudflare proxy is on. Set the `softai` record to
    **DNS only (grey cloud)**.
 5. **`better-sqlite3` fails to build** → missing `build-essential` / `python3`.
-   On a 1 GB droplet add swap if the compile OOMs:
+   On a 1 GB droplet add swap if the compile OOMs (not needed at 2 GB):
    `sudo fallocate -l 1G /swapfile && sudo chmod 600 /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile`
 6. **Cert not issued** → port 80 must be open and the A record must resolve to the
    droplet before Caddy starts. `sudo journalctl -u caddy -f`.
