@@ -62,7 +62,7 @@ export class CallSession {
 
   async start() {
     this._log('greeting');
-    await this._say([PROMPTS.greeting], { bargeable: false });
+    await this._say([PROMPTS.greeting]); // interruptible — people answer over the opener
     this._listen();
   }
 

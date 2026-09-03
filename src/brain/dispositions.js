@@ -3,22 +3,22 @@
 // mapped to audio and to CRM outcomes.
 
 export const DISPOSITIONS = {
-  INT: { desc: 'Positive interest — wants to hear more, or engages with the pitch', group: 'advance' },
-  NEU: { desc: 'Neutral / non-committal — "what is this about", "go on", "okay"', group: 'advance' },
+  INT: { desc: "Positive interest — \"tell me more\", \"sounds good\", asks what it would cost or how long it takes", group: 'advance' },
+  NEU: { desc: "Neutral, or simply ANSWERS the website-age question — \"5 years\", \"since 2019\", \"a while back\", \"we don't have one\", \"no website\", \"go on\", \"okay\"", group: 'advance' },
   DM: { desc: 'States or confirms they own the business or decide on web/software', group: 'advance' },
   NDM: { desc: 'Not the decision maker; someone else handles this', group: 'route' },
   QUAL: { desc: 'Decision maker AND clearly interested — ready for a consultant', group: 'transfer' },
 
-  NI: { desc: 'Soft "not interested", no specific reason given', group: 'objection' },
-  HAS: { desc: 'Already has a developer, agency, or in-house team', group: 'objection' },
-  HAP: { desc: 'Happy with their current website / software as it is', group: 'objection' },
-  BUDGET: { desc: 'Cost / budget / "too expensive" objection', group: 'objection' },
+  NI: { desc: "Brush-off with no specific reason — \"not interested\", \"I don't need it\", \"no thanks\", \"we're fine\"", group: 'objection' },
+  HAS: { desc: "Already has someone — \"we have a guy\", \"our agency handles it\", \"in-house team\", \"already working with someone\"", group: 'objection' },
+  HAP: { desc: "Happy as-is — \"our site is fine\", \"we just rebuilt it\", \"brand new site\", \"no changes needed\"", group: 'objection' },
+  BUDGET: { desc: "Cost objection — \"too expensive\", \"no budget\", \"can't afford it\", \"how much\" said dismissively", group: 'objection' },
 
-  TIME: { desc: 'Busy right now / "bad time"', group: 'callback' },
+  TIME: { desc: "Bad moment — \"not now\", \"I'm busy\", \"I'm driving\", \"in a meeting\"", group: 'callback' },
   CB: { desc: 'Explicit request to be called back another time', group: 'callback' },
 
   BOT: { desc: 'Asks if this is a bot, AI, or a recording', group: 'question' },
-  WHO: { desc: 'Asks who is calling / what company', group: 'question' },
+  WHO: { desc: "Asks who is calling — \"who is this\", \"what company\", \"who am I speaking to\", \"where are you calling from\"", group: 'question' },
   HOW: { desc: 'Asks how it works, how we got their number, what exactly we do', group: 'question' },
   EMAIL: { desc: 'Asks to receive information by email instead', group: 'question' },
 

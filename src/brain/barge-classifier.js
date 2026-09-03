@@ -17,7 +17,26 @@ const SIDE_TALK = [
 
 const STOP_INTENT = [
   /not interested/, /take me off/, /remove me/, /stop calling/, /do not call/,
-  /who is this/, /what (is )?this (is )?about/, /how did you get/, /are you a (bot|robot|machine|recording)/,
+  /who is this/, /what (is )?this (is )?about/, /how did you get/,
+  /are you a (bot|robot|machine|recording)/,
+  // short but decisive — these must never be mistaken for filler
+  /\b(don'?t|do not) need\b/, /\bno,? thanks?\b/, /\bnot now\b/,
+  /\balready (have|got|working)\b/, /\btoo expensive\b/, /\bno budget\b/,
+  /\bcall (me )?back\b/, /\bi'?m busy\b/, /\bwrong number\b/,
+];
+
+// Answers to "how old is your website?" — often only one or two words, but they
+// are the single most important thing the caller says. Treating them as filler
+// meant the bot talked straight over the answer it had just asked for.
+const ANSWER_LIKE = [
+  /\b\d+\s*(year|yr|month|week|day)s?\b/,
+  /\b(one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|fifteen|twenty)\s+(year|month)s?\b/,
+  /\bsince\s+(19|20)\d{2}\b/,
+  /\b(19|20)\d{2}\b/,
+  /^\s*\d+\s*$/,
+  /\b(don'?t|do not) have (one|a website|any)\b/,
+  /\bno website\b/,
+  /\b(brand ?new|last year|this year|a while|ages)\b/,
 ];
 
 /**
@@ -29,6 +48,7 @@ export function classifyBarge(transcript) {
   if (!n) return 'BACKCHANNEL';
 
   if (STOP_INTENT.some((re) => re.test(n))) return 'STOP';
+  if (ANSWER_LIKE.some((re) => re.test(n))) return 'STOP';
   if (n.includes('?')) return 'STOP';
   if (BACKCHANNEL.has(n)) return 'BACKCHANNEL';
   if (SIDE_TALK.some((re) => re.test(n))) return 'SIDE_TALK';

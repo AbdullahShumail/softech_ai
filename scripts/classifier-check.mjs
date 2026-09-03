@@ -22,6 +22,16 @@ const cases = [
   ['yeah that sounds interesting, tell me more', 'INT'],
   ['please leave a message after the tone', 'AM'],
   ['our site is fine the way it is', 'HAP'],
+  ['5 years', 'NEU'],
+  ['about six years old', 'NEU'],
+  ['since 2019', 'NEU'],
+  ['we do not have a website', 'NEU'],
+  ['I do not need it', 'NI'],
+  ['no thanks', 'NI'],
+  ['not now', 'TIME/CB'],
+  ['we already have a guy for that', 'HAS'],
+  ['what company are you calling from', 'WHO'],
+  ['too expensive for us', 'BUDGET'],
 ];
 
 console.log(`model=${config.groq.llmModel} effort=${config.groq.reasoningEffort} maxTokens=${config.groq.classifierMaxTokens}\n`);

@@ -31,7 +31,7 @@ export class Endpointer {
     // Strict mode is used while the BOT is talking. Without it the bot's own
     // audio — echoed back through a speakerphone or a laptop mic — trips the
     // endpointer and gets transcribed as if the caller said it.
-    this.strictStartFrames = opts.strictStartFrames ?? 18; // ~360 ms of real speech
+    this.strictStartFrames = opts.strictStartFrames ?? 13; // ~260 ms of real speech
     this.strictRmsMultiplier = opts.strictRmsMultiplier ?? 2.2;
     this.strict = false;
 
