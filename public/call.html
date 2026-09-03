@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Softech AI Voice Agent</title>
+<link rel="icon" type="image/svg+xml" href="/logo.svg">
 <style>
   :root{
     --orange:#ff5500; --orange-dk:#e04b00; --orange-tint:#fff3ed;
@@ -25,12 +26,7 @@
     padding:30px;width:100%;max-width:540px;
   }
   .brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
-  .brand img{height:36px;width:auto;display:block}
-  .brand .mark{
-    height:36px;width:36px;border-radius:9px;background:var(--orange);
-    display:flex;align-items:center;justify-content:center;
-    color:#fff;font-weight:800;font-size:16px;letter-spacing:-.5px;flex:none;
-  }
+  .brand .mark{height:38px;width:38px;flex:none;display:block}
   .brand .name{font-weight:700;font-size:16px;letter-spacing:-.2px}
   .brand .name span{display:block;font-weight:400;font-size:12px;color:var(--faint);letter-spacing:0}
 
@@ -91,8 +87,9 @@
 <body>
 <div class="card">
   <div class="brand">
-    <img id="logo" src="/logo.png" alt="Softech" onerror="this.remove()">
-    <div class="mark" id="fallbackMark">S</div>
+    <svg class="mark" viewBox="0 0 1500 1500" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Softech">
+      <path fill="#FF5500" d="M925.347 369.962C925.347 404.04 962.235 425.338 991.745 408.299L1240.01 264.952C1261.18 252.728 1288.26 259.982 1300.48 281.155L1431.06 507.343C1443.29 528.517 1436.03 555.591 1414.86 567.815L1283.88 643.432C1273.7 649.312 1261.6 650.897 1250.24 647.839L973.955 573.418C923.987 559.959 895.474 628.509 940.245 654.462L1101.19 747.758C1101.64 748.016 1101.64 748.658 1101.19 748.916C1100.75 749.174 1100.75 749.817 1101.19 750.074L1414.86 931.184C1436.03 943.409 1443.29 970.482 1431.06 991.655L1300.48 1217.84C1288.26 1239.02 1261.18 1246.27 1240.01 1234.05L991.745 1090.7C962.235 1073.66 925.347 1094.96 925.347 1129.03V1415.73C925.347 1440.18 905.529 1460 881.082 1460H619.918C595.471 1460 575.653 1440.18 575.653 1415.73V1129.03C575.653 1094.96 538.765 1073.66 509.255 1090.7L260.987 1234.05C239.816 1246.27 212.743 1239.02 200.52 1217.84L69.9378 991.655C57.7145 970.482 64.968 943.408 86.1391 931.184L206.057 861.941C216.241 856.061 228.347 854.475 239.703 857.534L558.057 943.288C608.025 956.747 636.539 888.197 591.768 862.244L399.911 751.029C399.517 750.801 399.519 750.233 399.913 750.006C400.308 749.78 400.308 749.211 399.914 748.983L86.1406 567.816C64.9688 555.591 57.7149 528.517 69.9383 507.344L200.52 281.155C212.744 259.982 239.816 252.728 260.987 264.952L509.256 408.299C538.766 425.338 575.653 404.04 575.653 369.962V83.2679C575.653 58.8194 595.471 39 619.918 39H881.082C905.529 39 925.347 58.8194 925.347 83.2679V369.962Z"/>
+    </svg>
     <div class="name">Softech Innovative Solutions<span>AI Voice Agent</span></div>
   </div>
 
@@ -127,10 +124,6 @@
 var key = new URLSearchParams(location.search).get('k') || '';
 function $(id){ return document.getElementById(id); }
 var device = null, call = null, t0 = null, tick = null;
-
-// Hide the letter mark if a real logo loaded.
-var logoEl = $('logo');
-if (logoEl) logoEl.addEventListener('load', function(){ var m = $('fallbackMark'); if (m) m.remove(); });
 
 function log(msg, tag){
   var time = new Date().toTimeString().slice(0, 8);

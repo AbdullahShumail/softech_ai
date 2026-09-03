@@ -84,11 +84,9 @@ export function createHttpApp({ runner } = {}) {
     res.type('html').send(readFileSync(join(here, '../../public/call.html'), 'utf8'));
   });
 
-  // Brand logo for the call page. Optional — the page falls back to a letter mark.
-  app.get('/logo.png', (_req, res) => {
-    res.sendFile(join(here, '../../public/logo.png'), (err) => {
-      if (err) res.sendStatus(404);
-    });
+  // Brand mark, also used as the favicon. The call page inlines the same SVG.
+  app.get('/logo.svg', (_req, res) => {
+    res.type('image/svg+xml').send(readFileSync(join(here, '../../public/logo.svg'), 'utf8'));
   });
 
   app.get('/token', (req, res) => {
