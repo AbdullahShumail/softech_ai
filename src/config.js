@@ -31,7 +31,12 @@ export const config = {
   },
 
   db: {
-    path: process.env.DB_PATH || './data/bot.db',
+    // node --test sets NODE_TEST_CONTEXT in each test child. Without this, running
+    // the suite on a live box writes fixture leads into the production database
+    // (and a seeded lead could then actually get dialed).
+    path:
+      process.env.DB_PATH ||
+      (process.env.NODE_TEST_CONTEXT ? './data/test.db' : './data/bot.db'),
   },
 
   prompts: {
