@@ -21,6 +21,11 @@ export const config = {
     authToken: process.env.TWILIO_AUTH_TOKEN || '',
     fromNumber: process.env.TWILIO_FROM_NUMBER || '',
     validateSignatures: bool(process.env.TWILIO_VALIDATE_SIGNATURES, true),
+    // Browser (WebRTC) calling — lets you talk to the bot from a web page with
+    // no phone call, so no international rates and no geo permissions needed.
+    apiKeySid: process.env.TWILIO_API_KEY_SID || '',
+    apiKeySecret: process.env.TWILIO_API_KEY_SECRET || '',
+    twimlAppSid: process.env.TWILIO_TWIML_APP_SID || '',
   },
 
   groq: {

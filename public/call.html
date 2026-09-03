@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SofTech AI — Voice Bot Test</title>
+<style>
+  :root{--bg:#0e1116;--card:#161b22;--line:#272e38;--fg:#e6edf3;--dim:#8b949e;
+        --ok:#2ea043;--okd:#238636;--stop:#da3633;--stopd:#b62324;--acc:#388bfd}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;background:var(--bg);color:var(--fg);
+       font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       display:flex;align-items:center;justify-content:center;padding:24px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;
+        padding:28px;width:100%;max-width:520px}
+  h1{margin:0 0 4px;font-size:19px}
+  .sub{color:var(--dim);font-size:13px;margin-bottom:22px}
+  .status{display:flex;align-items:center;gap:10px;padding:13px 15px;background:#0d1117;
+          border:1px solid var(--line);border-radius:9px;margin-bottom:18px;font-size:14px}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--dim);flex:none}
+  .dot.live{background:var(--ok);animation:p 1.6s infinite}
+  .dot.busy{background:#d29922}
+  .dot.err{background:var(--stop)}
+  @keyframes p{0%{box-shadow:0 0 0 0 rgba(46,160,67,.7)}70%{box-shadow:0 0 0 9px rgba(46,160,67,0)}100%{box-shadow:0 0 0 0 rgba(46,160,67,0)}}
+  .row{display:flex;gap:10px}
+  button{flex:1;padding:14px;border:0;border-radius:9px;font-size:15px;font-weight:600;
+         cursor:pointer;color:#fff;transition:.15s}
+  button:disabled{opacity:.35;cursor:not-allowed}
+  #callBtn{background:var(--okd)}
+  #callBtn:not(:disabled):hover{background:var(--ok)}
+  #hangBtn{background:var(--stopd)}
+  #hangBtn:not(:disabled):hover{background:var(--stop)}
+  #muteBtn{background:#30363d;flex:0 0 92px}
+  .timer{text-align:center;font-variant-numeric:tabular-nums;font-size:26px;
+         margin:16px 0 4px;letter-spacing:1px}
+  .hint{color:var(--dim);font-size:12.5px;text-align:center;margin-bottom:18px}
+  #log{margin-top:20px;background:#0d1117;border:1px solid var(--line);border-radius:9px;
+       padding:11px 13px;height:170px;overflow-y:auto;
+       font:12px/1.65 ui-monospace,SFMono-Regular,Consolas,monospace;
+       color:var(--dim);white-space:pre-wrap}
+  #log b{color:var(--acc);font-weight:600}
+  .try{margin-top:18px;border-top:1px solid var(--line);padding-top:14px;font-size:13px;color:var(--dim)}
+  .try code{background:#0d1117;padding:1.5px 6px;border-radius:4px;color:var(--fg);font-size:12px}
+  .try div{margin:5px 0}
+</style>
+</head>
+<body>
+<div class="card">
+  <h1>SofTech AI — Voice Bot</h1>
+  <div class="sub">Talk to the agent from your browser. No phone call, no international charges.</div>
+
+  <div class="status"><span class="dot" id="dot"></span><span id="statusText">Loading&hellip;</span></div>
+  <div class="timer" id="timer">00:00</div>
+  <div class="hint" id="hint">Your browser will ask for microphone access</div>
+
+  <div class="row">
+    <button id="callBtn" disabled>Call the AI</button>
+    <button id="muteBtn" disabled>Mute</button>
+    <button id="hangBtn" disabled>Hang up</button>
+  </div>
+
+  <div class="try">
+    <div><code>"we built it in 2019"</code> &rarr; pitch</div>
+    <div><code>"who is this?"</code> &rarr; identifies itself</div>
+    <div><code>"are you a robot?"</code> &rarr; AI disclosure</div>
+    <div><code>"not interested"</code> &rarr; rebuttal</div>
+    <div><code>"take me off your list"</code> &rarr; opts you out, hangs up</div>
+  </div>
+
+  <div id="log"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@twilio/voice-sdk@2/dist/twilio.min.js"></script>
+<script>
+var key = new URLSearchParams(location.search).get('k') || '';
+function $(id){ return document.getElementById(id); }
+var device = null, call = null, t0 = null, tick = null;
+
+function log(msg, tag){
+  var time = new Date().toTimeString().slice(0, 8);
+  $('log').innerHTML += time + ' ' + (tag ? '<b>' + tag + '</b> ' : '') + msg + '\n';
+  $('log').scrollTop = $('log').scrollHeight;
+}
+function status(text, cls){
+  $('statusText').textContent = text;
+  $('dot').className = 'dot' + (cls ? ' ' + cls : '');
+}
+function pad(n){ return String(n).padStart(2, '0'); }
+function startTimer(){
+  t0 = Date.now();
+  tick = setInterval(function(){
+    var s = Math.floor((Date.now() - t0) / 1000);
+    $('timer').textContent = pad(Math.floor(s / 60)) + ':' + pad(s % 60);
+  }, 250);
+}
+function stopTimer(){ clearInterval(tick); tick = null; $('timer').textContent = '00:00'; }
+
+async function init(){
+  try {
+    status('Requesting access token...', 'busy');
+    var res = await fetch('/token?k=' + encodeURIComponent(key));
+    if (!res.ok) throw new Error(await res.text());
+    var data = await res.json();
+    log('token acquired for ' + data.identity, 'AUTH');
+
+    device = new Twilio.Device(data.token, { codecPreferences: ['opus', 'pcmu'], logLevel: 'error' });
+    device.on('error', function(e){ log(e.message, 'ERROR'); status('Error: ' + e.message, 'err'); });
+    device.on('tokenWillExpire', async function(){
+      var r = await fetch('/token?k=' + encodeURIComponent(key));
+      device.updateToken((await r.json()).token);
+      log('token refreshed', 'AUTH');
+    });
+
+    status('Ready - click to call');
+    $('callBtn').disabled = false;
+    log('device ready', 'INIT');
+  } catch (err) {
+    status('Setup failed: ' + err.message, 'err');
+    log(err.message, 'FATAL');
+  }
+}
+
+$('callBtn').onclick = async function(){
+  try {
+    $('callBtn').disabled = true;
+    status('Connecting...', 'busy');
+    log('placing call', 'CALL');
+    call = await device.connect({ params: {} });
+
+    call.on('accept', function(){
+      status('Connected - the agent is speaking', 'live');
+      $('hint').textContent = 'Speak normally. You can interrupt it mid-sentence.';
+      $('hangBtn').disabled = false;
+      $('muteBtn').disabled = false;
+      startTimer();
+      log('connected - audio flowing', 'CALL');
+    });
+    call.on('disconnect', function(){
+      status('Call ended');
+      stopTimer();
+      $('callBtn').disabled = false;
+      $('hangBtn').disabled = true;
+      $('muteBtn').disabled = true;
+      $('muteBtn').textContent = 'Mute';
+      $('hint').textContent = 'Your browser will ask for microphone access';
+      log('call ended', 'CALL');
+    });
+    call.on('error', function(e){ log(e.message, 'ERROR'); status('Call error: ' + e.message, 'err'); });
+  } catch (err) {
+    status('Could not start: ' + err.message, 'err');
+    log(err.message, 'ERROR');
+    $('callBtn').disabled = false;
+  }
+};
+
+$('hangBtn').onclick = function(){ if (call) call.disconnect(); };
+$('muteBtn').onclick = function(){
+  if (!call) return;
+  var m = !call.isMuted();
+  call.mute(m);
+  $('muteBtn').textContent = m ? 'Unmute' : 'Mute';
+  log(m ? 'muted' : 'unmuted', 'MIC');
+};
+
+if (!key) {
+  status('Missing ?k= token in the URL', 'err');
+  log('append ?k=<CONTROL_TOKEN> to the URL', 'FATAL');
+} else {
+  init();
+}
+</script>
+</body>
+</html>

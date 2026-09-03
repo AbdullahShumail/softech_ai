@@ -4,6 +4,12 @@ import { config } from '../config.js';
 import { logger } from '../obs/logger.js';
 import { healthSnapshot } from '../obs/health.js';
 import { lookupCall } from '../runner/registry.js';
+import { mintVoiceToken } from './voice-token.js';
+import { readFileSync } from 'node:fs';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const here = dirname(fileURLToPath(import.meta.url));
 
 const { twiml: Twiml } = twilio;
 
@@ -55,6 +61,37 @@ export function createHttpApp({ runner } = {}) {
       runner?.onCallComplete?.(CallSid);
     }
     res.sendStatus(204);
+  });
+
+  // ---- Browser click-to-call test page ----
+  // Gated by the control token: an access token lets the holder place calls
+  // billed to this Twilio account, so it must not be world-readable.
+  const checkKey = (req, res) => {
+    const k = req.query.k || req.header('X-Control-Token');
+    if (!config.runner.controlToken) {
+      res.status(503).send('set CONTROL_TOKEN to enable the test page');
+      return false;
+    }
+    if (k !== config.runner.controlToken) {
+      res.status(403).send('bad or missing ?k= token');
+      return false;
+    }
+    return true;
+  };
+
+  app.get('/call', (req, res) => {
+    if (!checkKey(req, res)) return;
+    res.type('html').send(readFileSync(join(here, '../../public/call.html'), 'utf8'));
+  });
+
+  app.get('/token', (req, res) => {
+    if (!checkKey(req, res)) return;
+    try {
+      res.json(mintVoiceToken());
+    } catch (err) {
+      logger.error({ err: err.message }, 'token mint failed');
+      res.status(500).json({ error: err.message });
+    }
   });
 
   // Minimal dialer control (needs X-Control-Token).
