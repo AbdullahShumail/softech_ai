@@ -23,7 +23,11 @@ export const config = {
     apiKey: process.env.GROQ_API_KEY || '',
     baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
     sttModel: process.env.GROQ_STT_MODEL || 'whisper-large-v3-turbo',
-    llmModel: process.env.GROQ_LLM_MODEL || 'llama-3.1-8b-instant',
+    llmModel: process.env.GROQ_LLM_MODEL || 'openai/gpt-oss-20b',
+    // gpt-oss models emit hidden reasoning tokens before content. Keep effort low
+    // and max_tokens well above the JSON size or `content` comes back empty.
+    reasoningEffort: process.env.GROQ_REASONING_EFFORT || 'low',
+    classifierMaxTokens: num(process.env.GROQ_CLASSIFIER_MAX_TOKENS, 400),
   },
 
   db: {

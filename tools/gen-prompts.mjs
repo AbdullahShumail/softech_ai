@@ -28,8 +28,8 @@ const outDir = flag('out', process.env.PROMPT_DIR || './prompts/b2b-outreach');
 
 const PRESETS = {
   groq: {
-    model: 'playai-tts',
-    voice: 'Fritz-PlayAI',
+    model: 'canopylabs/orpheus-v1-english',
+    voice: 'tara',
     baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
     key: process.env.GROQ_API_KEY,
     keyName: 'GROQ_API_KEY',

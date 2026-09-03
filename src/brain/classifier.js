@@ -38,8 +38,9 @@ export async function classify({ systemPrompt, history = [], utterance, client =
       model: config.groq.llmModel,
       messages,
       temperature: 0,
-      max_tokens: 60,
+      max_tokens: config.groq.classifierMaxTokens,
       response_format: { type: 'json_object' },
+      ...(config.groq.reasoningEffort ? { reasoning_effort: config.groq.reasoningEffort } : {}),
     });
     const raw = res.choices?.[0]?.message?.content ?? '{}';
     const obj = JSON.parse(raw);
