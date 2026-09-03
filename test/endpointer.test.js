@@ -58,3 +58,22 @@ test('noise floor adapts so a loud-ish room still triggers on real speech', () =
   ep.push(frame(6000));
   assert.deepEqual(ep.push(frame(6000)), { type: 'speech-start' });
 });
+
+test('strict mode needs far more voiced frames (rejects bot echo)', () => {
+  const ep = new Endpointer({ startFrames: 3, strictStartFrames: 18 });
+  ep.setStrict(true);
+  // a short burst that WOULD trigger in relaxed mode must not trigger in strict
+  for (let i = 0; i < 10; i++) assert.equal(ep.push(frame(8000)), null, `frame ${i}`);
+  assert.equal(ep.inSpeech, false);
+  // sustained real speech still gets through
+  let started = null;
+  for (let i = 0; i < 12 && !started; i++) started = ep.push(frame(8000));
+  assert.deepEqual(started, { type: 'speech-start' });
+});
+
+test('strict mode also raises the loudness bar', () => {
+  const relaxed = new Endpointer();
+  const strict = new Endpointer();
+  strict.setStrict(true);
+  assert.ok(strict.threshold > relaxed.threshold, `${strict.threshold} !> ${relaxed.threshold}`);
+});

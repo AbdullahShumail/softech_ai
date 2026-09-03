@@ -100,3 +100,32 @@ test('a DNC utterance ends the call and reports the disposition', async () => {
   assert.equal(finals[0].finalDisposition, 'DNC');
   assert.equal(session.done, true);
 });
+
+test('a near-silent capture is dropped before it reaches STT', async () => {
+  const stream = fakeStream();
+  let sttCalls = 0;
+
+  const session = new CallSession({
+    stream,
+    library: fakeLibrary,
+    campaign,
+    callSid: 'CAquiet',
+    deps: {
+      transcribe: async () => {
+        sttCalls++;
+        return { text: 'Thank you.' }; // the classic Whisper silence hallucination
+      },
+      classify: async () => ({ disposition: 'NEU', thought: '', decisionMaker: null }),
+      onFinal: () => {},
+    },
+  });
+
+  await session.start();
+  // Loud enough to trip the VAD, but never loud enough to be real speech.
+  stream.onMedia({ payload: payload(30, 500) });
+  stream.onMedia({ payload: payload(40, 15) });
+  await delay(20);
+
+  assert.equal(sttCalls, 0, 'room tone must not be sent to Whisper');
+  assert.equal(session.done, false);
+});

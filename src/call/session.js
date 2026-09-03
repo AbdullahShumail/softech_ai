@@ -11,7 +11,12 @@ import { PROMPTS } from '../brain/audio-map.js';
 
 const FRAME_BYTES = 320; // 160 samples PCM16 = 20 ms @ 8 kHz
 const PREROLL_FRAMES = 12; // ~240 ms kept before speech-start
-const MIN_UTTERANCE_MS = 300;
+const MIN_UTTERANCE_MS = 400;
+// Whisper invents words from silence ("Thank you.", "Daniels", stray Icelandic).
+// If a captured segment never got meaningfully loud, drop it before spending an
+// STT call on it. Peak, not mean: every capture ends with ~700 ms of trailing
+// silence, which would drag a short real utterance below any mean threshold.
+const MIN_CAPTURE_PEAK_RMS = 700;
 
 // Orchestrates one answered call: greet → (listen → transcribe → classify →
 // decide → play) loop → transfer or hang up. Injectables in `deps` keep it
@@ -45,6 +50,7 @@ export class CallSession {
     this.capturing = false;
     this.captureChunks = [];
     this.captureMs = 0;
+    this.capturePeakRms = 0;
     this.preroll = [];
     this.barged = false;
     this.lastPrompts = [];
@@ -74,6 +80,7 @@ export class CallSession {
         this.capturing = true;
         this.captureChunks = this.preroll.slice();
         this.captureMs = this.preroll.length * 20;
+        this.capturePeakRms = 0;
         this.preroll = [];
         this._onSpeechStart();
       }
@@ -81,6 +88,9 @@ export class CallSession {
       if (this.capturing) {
         this.captureChunks.push(mu);
         this.captureMs += 20;
+        if (this.endpointer.lastRms > this.capturePeakRms) {
+          this.capturePeakRms = this.endpointer.lastRms;
+        }
       } else {
         this.preroll.push(mu);
         if (this.preroll.length > PREROLL_FRAMES) this.preroll.shift();
@@ -105,12 +115,17 @@ export class CallSession {
     }
     this.capturing = false;
     const mulaw = Buffer.concat(this.captureChunks);
+    const peakRms = this.capturePeakRms;
+    const heldMs = this.captureMs;
     this.captureChunks = [];
-    if (this.captureMs < MIN_UTTERANCE_MS) {
-      this.captureMs = 0;
-      return;
-    }
     this.captureMs = 0;
+    this.capturePeakRms = 0;
+
+    if (heldMs < MIN_UTTERANCE_MS) return;
+    if (peakRms < MIN_CAPTURE_PEAK_RMS) {
+      this._log('capture-too-quiet', { ms: heldMs, peakRms: Math.round(peakRms) });
+      return; // don't burn an STT call on room tone
+    }
     this.phase = 'processing';
     const barged = this.barged;
     this.barged = false;
@@ -198,6 +213,7 @@ export class CallSession {
     if (this.done || !prompts?.length) return;
     this.lastPrompts = prompts;
     this._bargeable = bargeable;
+    this.endpointer.setStrict(true); // reject our own audio echoing back
     await this.playback.play(prompts);
   }
 
@@ -205,9 +221,11 @@ export class CallSession {
     if (this.done) return;
     this.phase = 'listening';
     this.endpointer.reset();
+    this.endpointer.setStrict(false);
     this.capturing = false;
     this.captureChunks = [];
     this.captureMs = 0;
+    this.capturePeakRms = 0;
     this.preroll = [];
   }
 

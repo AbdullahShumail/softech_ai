@@ -23,10 +23,17 @@ export class Endpointer {
     this.noiseFloor = opts.initialNoiseFloor ?? 200;
     this.noiseAlpha = opts.noiseAlpha ?? 0.98; // slow adaptation while idle
     this.speechRatio = opts.speechRatio ?? 3.0;
-    this.minSpeechRms = opts.minSpeechRms ?? 250;
-    this.startFrames = opts.startFrames ?? 3; // ~60 ms to trigger
+    this.minSpeechRms = opts.minSpeechRms ?? 450;
+    this.startFrames = opts.startFrames ?? 6; // ~120 ms to trigger
     this.endFrames = opts.endFrames ?? 35; // ~700 ms trailing silence to end
     this.maxUtteranceMs = opts.maxUtteranceMs ?? 15000;
+
+    // Strict mode is used while the BOT is talking. Without it the bot's own
+    // audio — echoed back through a speakerphone or a laptop mic — trips the
+    // endpointer and gets transcribed as if the caller said it.
+    this.strictStartFrames = opts.strictStartFrames ?? 18; // ~360 ms of real speech
+    this.strictRmsMultiplier = opts.strictRmsMultiplier ?? 2.2;
+    this.strict = false;
 
     this.inSpeech = false;
     this._voiced = 0;
@@ -35,8 +42,19 @@ export class Endpointer {
     this.lastRms = 0;
   }
 
+  /** Strict while the bot speaks (echo rejection), relaxed while listening. */
+  setStrict(on) {
+    this.strict = !!on;
+    this._voiced = 0;
+  }
+
   get threshold() {
-    return Math.max(this.minSpeechRms, this.noiseFloor * this.speechRatio);
+    const base = Math.max(this.minSpeechRms, this.noiseFloor * this.speechRatio);
+    return this.strict ? base * this.strictRmsMultiplier : base;
+  }
+
+  get requiredStartFrames() {
+    return this.strict ? this.strictStartFrames : this.startFrames;
   }
 
   /**
@@ -49,10 +67,15 @@ export class Endpointer {
     const voiced = level > this.threshold;
 
     if (!this.inSpeech) {
-      // Adapt the noise floor only when we're not in an utterance.
-      this.noiseFloor = this.noiseAlpha * this.noiseFloor + (1 - this.noiseAlpha) * level;
+      // Track the noise floor from QUIET frames only. Adapting on loud frames too
+      // lets a long voiced run inflate the floor past its own threshold, so the
+      // voiced counter resets and speech-start never fires — which bites hardest
+      // in strict mode, where we wait for many more frames before triggering.
+      if (!voiced) {
+        this.noiseFloor = this.noiseAlpha * this.noiseFloor + (1 - this.noiseAlpha) * level;
+      }
       if (voiced) {
-        if (++this._voiced >= this.startFrames) {
+        if (++this._voiced >= this.requiredStartFrames) {
           this.inSpeech = true;
           this._voiced = 0;
           this._silent = 0;
