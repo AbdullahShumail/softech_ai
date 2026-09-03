@@ -17,9 +17,10 @@ SQLite + per-call JSON logs + retention prune. 55 tests, `node --test`.
 **Left to do (needs you):** Twilio + Groq creds, a TLS domain on the VM, the 22
 prompt WAVs, deploy, one supervised end-to-end call. See
 [docs/GO-LIVE-CHECKLIST.md](docs/GO-LIVE-CHECKLIST.md) and
-[docs/DEPLOY-HETZNER.md](docs/DEPLOY-HETZNER.md).
+[docs/DEPLOY-DIGITALOCEAN.md](docs/DEPLOY-DIGITALOCEAN.md).
 
-Drop 8 kHz (or any-rate) mono WAV prompts into `prompts/b2b-outreach/` — see
+Prompt audio: `npm run gen-prompts` builds all 22 WAVs from `tools/prompt-script.json`
+via Groq TTS (reuses `GROQ_API_KEY`). Copy reference:
 [docs/PROMPTS.md](docs/PROMPTS.md). Missing names are logged at startup.
 
 ## Setup
