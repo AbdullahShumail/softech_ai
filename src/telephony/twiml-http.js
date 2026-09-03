@@ -84,6 +84,13 @@ export function createHttpApp({ runner } = {}) {
     res.type('html').send(readFileSync(join(here, '../../public/call.html'), 'utf8'));
   });
 
+  // Brand logo for the call page. Optional — the page falls back to a letter mark.
+  app.get('/logo.png', (_req, res) => {
+    res.sendFile(join(here, '../../public/logo.png'), (err) => {
+      if (err) res.sendStatus(404);
+    });
+  });
+
   app.get('/token', (req, res) => {
     if (!checkKey(req, res)) return;
     try {
