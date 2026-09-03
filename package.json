@@ -10,7 +10,9 @@
     "test": "node --test",
     "smoke": "node scripts/http-smoke.mjs",
     "migrate": "node src/data/migrate.js",
-    "gen-prompts": "node tools/gen-prompts.mjs"
+    "gen-prompts": "node tools/gen-prompts.mjs",
+    "gen-prompts:free": "python3 tools/gen_prompts_edge.py",
+    "verify-prompts": "node scripts/verify-prompts.mjs"
   },
   "engines": {
     "node": ">=20"
