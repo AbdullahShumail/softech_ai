@@ -8,6 +8,10 @@ export const config = {
 
   http: {
     port: num(process.env.HTTP_PORT, 8080),
+    // Bind loopback-only by default: Caddy terminates TLS and proxies to us, so
+    // exposing 8080 publicly would let anyone reach /voice and /media over plain
+    // HTTP, bypassing TLS and Twilio signature checks. Override for local dev.
+    bindHost: process.env.BIND_HOST || '127.0.0.1',
     // Hostname Twilio dials back to for the Media Stream websocket (no protocol).
     publicHost: process.env.PUBLIC_HOST || '',
   },

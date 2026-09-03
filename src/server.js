@@ -70,9 +70,9 @@ attachMediaStream(server, (stream) => {
   session.start().catch((err) => logger.error({ callSid, err: err.message }, 'session.start failed'));
 });
 
-server.listen(config.http.port, () => {
+server.listen(config.http.port, config.http.bindHost, () => {
   logger.info(
-    { port: config.http.port, publicHost: config.http.publicHost, campaign: campaign.campaign, env: config.env },
+    { port: config.http.port, bind: config.http.bindHost, publicHost: config.http.publicHost, campaign: campaign.campaign, env: config.env },
     'b2b-outreach-bot listening',
   );
   scheduleCallLogPrune(config.logs.callDir, config.logs.retentionDays);
