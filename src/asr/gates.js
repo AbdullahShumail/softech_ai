@@ -23,6 +23,40 @@ const SHORT_ANSWER_WHITELIST = new Set([
   'who', 'what', 'why', 'how', 'hello', 'goodbye',
 ]);
 
+/**
+ * Whisper loops when it runs out of real audio: a live call produced
+ * "and I'm going to be able to get a ticket to the ticket to the ticket".
+ * Fluent, confident, and entirely invented — a denylist can never catch these.
+ *
+ * The giveaway is that the loop RUNS TO THE END of the utterance. That matters,
+ * because it separates a stuck decoder from a person genuinely repeating
+ * themselves: "I'm not interested, I'm not interested, please stop calling"
+ * repeats too, but then carries on and says something new.
+ */
+export function isRepetitionLoop(text) {
+  const words = normalizeTranscript(text).split(' ').filter(Boolean);
+  if (words.length < 8) return false;
+
+  // three or more identical words in a row
+  let run = 1;
+  for (let i = 1; i < words.length; i++) {
+    run = words[i] === words[i - 1] ? run + 1 : 1;
+    if (run >= 3) return true;
+  }
+
+  // the tail is a phrase repeating itself right up to the final word
+  for (let n = 2; n <= 6; n++) {
+    if (words.length < 2 * n) break;
+    const a = words.slice(-2 * n, -n).join(' ');
+    const b = words.slice(-n).join(' ');
+    if (a === b) return true;
+  }
+
+  // almost no distinct vocabulary across a long utterance
+  const distinct = new Set(words).size;
+  return words.length >= 10 && distinct / words.length <= 0.34;
+}
+
 export function isVoicemail(text) {
   return VOICEMAIL_PATTERNS.some((re) => re.test(text));
 }
@@ -50,6 +84,7 @@ export function screenTranscript(text) {
   if (!raw) return { ok: false, reason: 'empty' };
   if (isVoicemail(raw)) return { ok: false, reason: 'voicemail' };
   if (isHallucinationPhrase(raw)) return { ok: false, reason: 'hallucination' };
+  if (isRepetitionLoop(raw)) return { ok: false, reason: 'repetition' };
   if (isFragment(raw)) return { ok: false, reason: 'fragment' };
   return { ok: true, text: raw };
 }

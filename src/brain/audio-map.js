@@ -8,6 +8,9 @@
 // at the next clip instead of restarting a 35-second pitch from the top.
 
 export const PROMPTS = {
+  // Answering a call and being spoken at instantly reads as a robocall. A beat of
+  // silence, then a human opener, then the identification.
+  hello: 'hello',
   greeting: 'greeting',
   pitch: ['pitch-1', 'pitch-2', 'pitch-3'],
   // Same pitch, but opening on the fact that they just told us the site is old.

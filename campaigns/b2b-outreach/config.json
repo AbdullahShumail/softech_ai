@@ -74,5 +74,7 @@
     "HOW": "NI",
     "EMAIL": "CALLBACK",
     "WAIT": "NI"
-  }
+  },
+  "openingDelayMs": 1500,
+  "sttPrompt": "A business owner answering a cold call about their company website. Typical replies: five years old, we built it in 2019, we don't have a website, not interested, who is this, how did you get my number, we have a guy, our agency handles it, how much does it cost, I'm the owner, I'm busy right now, take me off your list."
 }

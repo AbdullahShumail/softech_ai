@@ -51,6 +51,9 @@ export class CallSession {
       transcribe: transcribeMulaw,
       classify,
       prewarm: () => {},
+      // Beat of silence before the bot speaks. Answering a call and being talked
+      // at the instant you say hello is the tell of a robocall.
+      openingDelayMs: 1500,
       transfer: async () => {},
       // False when no closer is configured: qualify, capture, and close honestly
       // rather than promising a hand-off that would drop the call.
@@ -65,6 +68,11 @@ export class CallSession {
 
     this.state = freshState();
     this.sys = buildClassifierSystemPrompt(campaign);
+    // Whisper's prompt BIASES the decoder toward the words in it. Priming it with
+    // our own company name made it decode the bot's echo as that name
+    // ("Softech Innovative Sources" appeared in a live transcript). Bias toward
+    // what the CALLER is likely to say instead.
+    this.sttPrompt = campaign.sttPrompt || '';
     this.history = [];
     this.playback = deps.playback || new Playback(stream, library);
     this.endpointer = new Endpointer();
@@ -97,8 +105,19 @@ export class CallSession {
     } catch {
       /* never let a warm-up failure touch the call */
     }
+    // Let them get "hello?" out before we say anything.
+    const wait = this.deps.openingDelayMs ?? 0;
+    if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+    if (this.done) return;
+
     // Turn 0: the agent speaks first, so it is not a "turn" in the state machine
     // sense, but a transcript that starts mid-conversation is useless.
+    //
+    // hello + greeting go out as ONE play list, which makes the natural reply
+    // work for free: "good thanks" barges in, playback reports `greeting` as the
+    // unheard remainder, the barge classifier reads it as a backchannel, and the
+    // greeting resumes. The automated-call identification is never skipped.
+    const openingPrompts = [PROMPTS.hello, PROMPTS.greeting];
     const opening = {
       turn: 0,
       transcript: null,
@@ -106,8 +125,8 @@ export class CallSession {
       thought: null,
       latencyMs: 0,
       route: 'open',
-      prompts: [PROMPTS.greeting],
-      agentText: spokenText([PROMPTS.greeting]),
+      prompts: openingPrompts,
+      agentText: spokenText(openingPrompts),
     };
     this._log('greeting', { agentText: opening.agentText });
     this.deps.repo?.recordTurn?.(this.deps.callId, opening);
@@ -116,7 +135,7 @@ export class CallSession {
       { prompts: opening.prompts, said: opening.agentText },
       `turn 0 | agent: "${ellipsis(opening.agentText)}"`,
     );
-    await this._say([PROMPTS.greeting]); // interruptible — people answer over the opener
+    await this._say(openingPrompts); // interruptible — people answer over the opener
     this._listen();
   }
 
@@ -182,7 +201,7 @@ export class CallSession {
     const mulaw = Buffer.concat(this.captureChunks);
     this._spec = {
       promise: Promise.resolve()
-        .then(() => this.deps.transcribe(mulaw, { prompt: this.campaign.companyName }))
+        .then(() => this.deps.transcribe(mulaw, { prompt: this.sttPrompt }))
         .catch((err) => {
           this._log('stt-speculative-failed', { err: err.message });
           return null; // fall back to a fresh call on commit
@@ -237,7 +256,7 @@ export class CallSession {
     // silence, so it stands in for the committed one whenever it survived.
     let stt = spec ? await spec.promise : null;
     if (stt) this._log('stt-speculative-used');
-    else stt = await this.deps.transcribe(mulaw, { prompt: this.campaign.companyName });
+    else stt = await this.deps.transcribe(mulaw, { prompt: this.sttPrompt });
 
     const text = stt?.text ?? '';
     const screened = screenTranscript(text);

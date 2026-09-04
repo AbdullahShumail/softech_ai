@@ -54,6 +54,7 @@ attachMediaStream(server, (stream) => {
       repo: { recordTurn },
       callId,
       prewarm: prewarmClassifier,
+      openingDelayMs: campaign.openingDelayMs ?? 1500,
       transfer: transferToCloser,
       transferEnabled: config.transfer.enabled,
       hangup,

@@ -36,6 +36,16 @@ export const HALLUCINATION_PHRASES = [
   '[ music ]',
   'music playing',
   'music',
+  // seen in live b2b-outreach calls, decoded from silence or line noise
+  'love',
+  'love you',
+  'eh love you',
+  'peppol',
+  'yeah',
+  'hello hello',
+  'ok bye',
+  'thanks',
+  'thank you very much',
 ];
 
 const SET = new Set(HALLUCINATION_PHRASES.map((p) => p.toLowerCase()));

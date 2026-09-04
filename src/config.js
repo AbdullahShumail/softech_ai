@@ -10,6 +10,12 @@ function isRealNumber(n) {
   return !/^1?0+$/.test(digits);
 }
 
+/** Float-tolerant env number (num() parses integers). */
+function numF(v, dflt) {
+  const n = Number.parseFloat(v);
+  return Number.isFinite(n) ? n : dflt;
+}
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
 
@@ -39,6 +45,14 @@ export const config = {
     apiKey: process.env.GROQ_API_KEY || '',
     baseURL: process.env.GROQ_BASE_URL || 'https://api.groq.com/openai/v1',
     sttModel: process.env.GROQ_STT_MODEL || 'whisper-large-v3-turbo',
+    // Whisper reports per-segment confidence; anything below these bars is
+    // treated as invented rather than heard. Tunable from real call logs without
+    // a code change — raise minAvgLogprob if junk still gets through, lower it if
+    // real speech is being dropped.
+    stt: {
+      noSpeechProb: numF(process.env.STT_NO_SPEECH_PROB, 0.6),
+      minAvgLogprob: numF(process.env.STT_MIN_AVG_LOGPROB, -0.7),
+    },
     llmModel: process.env.GROQ_LLM_MODEL || 'openai/gpt-oss-20b',
     // gpt-oss models emit hidden reasoning tokens before content. Keep effort low
     // and max_tokens well above the JSON size or `content` comes back empty.

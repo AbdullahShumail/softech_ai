@@ -37,3 +37,27 @@ test('screenTranscript routing', () => {
     text: "no I'm not interested",
   });
 });
+
+// ---- Whisper repetition loops (seen in live calls) ----
+
+test('a decoder loop that runs to the end of the utterance is dropped', () => {
+  const real = "and I'm going to be able to get a ticket to the ticket to the ticket";
+  assert.equal(screenTranscript(real).reason, 'repetition');
+  assert.equal(screenTranscript('no no no no no no no no no no').reason, 'repetition');
+});
+
+test('a person repeating themselves is not a loop', () => {
+  // repeats, then says something NEW — the decoder never does that
+  const r = screenTranscript("I'm not interested, I'm not interested, please stop calling");
+  assert.equal(r.ok, true, 'must not swallow a DNC because it contains a repeat');
+});
+
+test('ordinary answers survive the repetition gate', () => {
+  for (const s of [
+    'we have a guy who does our website and he is pretty good at it',
+    "it's about five or six years old now I think",
+    'yes yes that is right I am the owner here',
+  ]) {
+    assert.equal(screenTranscript(s).ok, true, s);
+  }
+});

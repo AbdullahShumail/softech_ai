@@ -388,3 +388,77 @@ test('with a real closer configured, the transfer still happens', async () => {
   assert.equal(transferCalls, 1);
   assert.equal(finals[0].transferred, true);
 });
+
+// ---- opening ----
+
+test('the bot waits before speaking, then opens with hello + greeting', async () => {
+  const stream = fakeStream();
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 30,
+      transcribe: async () => ({ text: '' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      log: null, callId: 1,
+    },
+  });
+
+  const t0 = Date.now();
+  await session.start();
+  assert.ok(Date.now() - t0 >= 25, 'must leave a beat before speaking');
+
+  const segs = stream.marks.filter((m) => m.startsWith('seg:'));
+  assert.ok(segs[0].endsWith(':hello'), `expected hello first, got ${segs[0]}`);
+  assert.ok(segs[1].endsWith(':greeting'), `expected greeting second, got ${segs[1]}`);
+});
+
+test('answering the hello resumes into the greeting, never skipping the disclosure', async () => {
+  const stream = fakeStream();
+  const turns = [];
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0,
+      transcribe: async () => ({ text: 'good thanks' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      repo: { recordTurn: (_i, t) => turns.push(t) },
+      log: null, callId: 1,
+    },
+  });
+  await session.start();
+
+  // they answer the "how are you" while the greeting is still queued
+  session.phase = 'speaking';
+  session.lastPrompts = ['greeting'];
+  session.barged = true;
+  session.capturing = true;
+  session.captureChunks = [Buffer.alloc(8000)];
+  session.captureMs = 1000;
+  session.capturePeakRms = 5000;
+  session._onSpeechEnd();
+  await delay(30);
+
+  assert.deepEqual(session.lastPrompts, ['greeting'], 'the identification must still be played');
+});
+
+test('the opening turn records both clips and their words', async () => {
+  const turns = [];
+  const stream = fakeStream();
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0,
+      transcribe: async () => ({ text: '' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      repo: { recordTurn: (_i, t) => turns.push(t) },
+      log: null, callId: 1,
+    },
+  });
+  await session.start();
+  assert.deepEqual(turns[0].prompts, ['hello', 'greeting']);
+  assert.match(turns[0].agentText, /how are you doing/i);
+  assert.match(turns[0].agentText, /automated assistant/i);
+});

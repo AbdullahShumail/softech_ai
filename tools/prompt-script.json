@@ -1,6 +1,8 @@
 {
   "_note": "Verbatim copy for each prompt WAV. Keys must match src/brain/audio-map.js. Keep the automated-call identification in `greeting`, `ans-bot` and `voicemail-message`. Written for the ear: contractions, short sentences, fragments. Long turns are split so the caller can jump in and so barge-in can resume mid-thought.",
 
+  "hello": "Hello, how are you doing today?",
+
   "greeting": "Hi, this is Alex — I'm an automated assistant calling from Softech Innovative Solutions. We build websites and business software. Quick question and then I'll get out of your way: roughly how old is your current website?",
 
   "pitch-1": "Here's why I ask. Most business sites more than about three years old are slow on phones, and awkward to update.",
