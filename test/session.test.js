@@ -458,7 +458,125 @@ test('the opening turn records both clips and their words', async () => {
     },
   });
   await session.start();
-  assert.deepEqual(turns[0].prompts, ['hello', 'greeting']);
+  // the opener and the identification are separate utterances now, with a wait
+  // for the caller in between
+  assert.deepEqual(turns[0].prompts, ['hello']);
   assert.match(turns[0].agentText, /how are you doing/i);
-  assert.match(turns[0].agentText, /automated assistant/i);
+  assert.deepEqual(turns[1].prompts, ['greeting']);
+  assert.match(turns[1].agentText, /automated assistant/i);
+});
+
+test('the bot waits for a reply between the opener and the identification', async () => {
+  const stream = fakeStream();
+  const turns = [];
+  let sttCalls = 0;
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0,
+      replyWaitMs: 400,
+      transcribe: async () => { sttCalls++; return { text: 'good thanks how are you' }; },
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      repo: { recordTurn: (_i, t) => turns.push(t) },
+      log: null, callId: 1,
+    },
+  });
+
+  const p = session.start();
+  await delay(20); // hello has played; we are now waiting on them
+
+  // they answer
+  stream.onMedia({ payload: payload(6, 6000) });
+  stream.onMedia({ payload: payload(40, 15) });
+  await p;
+
+  assert.equal(sttCalls > 0, true, 'the reply should be transcribed');
+  const said = turns.map((t) => (t.prompts || []).join(','));
+  assert.deepEqual(said, ['hello', '', 'greeting'], 'hello, their reply, then the identification');
+  assert.equal(turns[1].transcript, 'good thanks how are you');
+});
+
+test('the opener is abandoned, not replayed, when talked over', async () => {
+  const stream = fakeStream();
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0, replyWaitMs: 0,
+      transcribe: async () => ({ text: 'hello?' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      log: null, callId: 1,
+    },
+  });
+  await session.start();
+  // hello must never become the resume target — that is the hello-over-hello collision
+  assert.ok(!session.lastPrompts.includes('hello'), 'hello must not be replayed');
+});
+
+test('playing audio marks the session as speaking, so barge-in can fire', async () => {
+  const stream = fakeStream();
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0, replyWaitMs: 0,
+      transcribe: async () => ({ text: '' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      log: null, callId: 1,
+    },
+  });
+  const saying = session._say(['greeting']);
+  assert.equal(session.phase, 'speaking', 'the opening ran at phase "init", so barge never fired');
+  await saying;
+});
+
+test('a do-not-call in the opening reply is honoured before the pitch', async () => {
+  const stream = fakeStream();
+  const finals = [];
+  let hangups = 0;
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0, replyWaitMs: 400,
+      transcribe: async () => ({ text: 'take me off your list' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => { hangups++; },
+      onFinal: (s) => finals.push(s),
+      log: null, callId: 1,
+    },
+  });
+
+  const p = session.start();
+  await delay(20);
+  stream.onMedia({ payload: payload(6, 6000) });
+  stream.onMedia({ payload: payload(40, 15) });
+  await p;
+  await delay(20);
+
+  assert.equal(finals[0]?.finalDisposition, 'DNC');
+  assert.equal(hangups, 1);
+  assert.ok(
+    !stream.marks.some((m) => m.endsWith(':greeting')),
+    'no point identifying ourselves to someone who just opted out',
+  );
+});
+
+test('silence after the opener still gets the identification', async () => {
+  const stream = fakeStream();
+  const session = new CallSession({
+    stream, library: fakeLibrary, campaign, callSid: 'CAtest',
+    deps: {
+      openingDelayMs: 0, replyWaitMs: 60,
+      transcribe: async () => ({ text: '' }),
+      classify: async () => ({ disposition: 'R', thought: '', decisionMaker: null }),
+      transfer: async () => {}, hangup: async () => {}, onFinal: () => {},
+      log: null, callId: 1,
+    },
+  });
+  await session.start();
+  assert.ok(
+    stream.marks.some((m) => m.endsWith(':greeting')),
+    'a quiet caller must still hear the automated-call disclosure',
+  );
 });

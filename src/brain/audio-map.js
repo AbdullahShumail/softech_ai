@@ -18,6 +18,9 @@ export const PROMPTS = {
   pitchNoSite: 'pitch-nosite',
   // Honours "I'll be thirty seconds" after a TIME objection — opener + payoff only.
   pitchShort: ['pitch-1', 'pitch-3'],
+  // Warm beat between their answer and the pitch, so the bot acknowledges what
+  // they said instead of steamrolling into the sales copy.
+  great: 'great',
   pitchFollowup: 'pitch-followup',
   askDecisionMaker: 'ask-decision-maker',
   transfer: 'transfer',

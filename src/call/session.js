@@ -88,6 +88,7 @@ export class CallSession {
     this.lastPrompts = [];
 
     this._spec = null; // in-flight speculative transcription
+    this._replyWaiter = null; // set while the opening waits for them to answer
     // Start each call at a different point in the ack rotation so two calls in
     // a row don't open with the same noise.
     this._ackIdx = Math.floor(Math.random() * ACK_PROMPTS.length);
@@ -105,38 +106,108 @@ export class CallSession {
     } catch {
       /* never let a warm-up failure touch the call */
     }
+
     // Let them get "hello?" out before we say anything.
     const wait = this.deps.openingDelayMs ?? 0;
     if (wait > 0) await new Promise((r) => setTimeout(r, wait));
     if (this.done) return;
 
-    // Turn 0: the agent speaks first, so it is not a "turn" in the state machine
-    // sense, but a transcript that starts mid-conversation is useless.
-    //
-    // hello + greeting go out as ONE play list, which makes the natural reply
-    // work for free: "good thanks" barges in, playback reports `greeting` as the
-    // unheard remainder, the barge classifier reads it as a backchannel, and the
-    // greeting resumes. The automated-call identification is never skipped.
-    const openingPrompts = [PROMPTS.hello, PROMPTS.greeting];
-    const opening = {
+    // A real opening is a two-part exchange, not two lines back to back:
+    //   "Hello, how are you doing?"  →  they answer  →  identification.
+    // If they talk over the opener we stop dead and let them finish; replaying
+    // it would produce the exact hello-over-hello collision we are avoiding,
+    // hence remember:false.
+    this._recordAgentTurn([PROMPTS.hello]);
+    await this._say([PROMPTS.hello], { remember: false });
+    if (this.done) return;
+
+    const reply = await this._awaitReply(this.deps.replyWaitMs ?? 0);
+    if (this.done) return;
+    if (reply && (await this._handleOpeningReply(reply))) return;
+
+    // The identification always follows, whatever they said. It carries the
+    // automated-call disclosure, so it is never skipped.
+    this._recordAgentTurn([PROMPTS.greeting]);
+    await this._say([PROMPTS.greeting]);
+    this._listen();
+  }
+
+  /**
+   * Wait for the caller to say something, then for them to finish saying it.
+   * Resolves null if they stay quiet.
+   *
+   * `timeoutMs` bounds how long we wait for them to START. Once they are
+   * mid-sentence we wait for the endpointer instead, so we never cut them off.
+   */
+  _awaitReply(timeoutMs) {
+    if (!(timeoutMs > 0)) return Promise.resolve(null);
+    this.phase = 'awaiting-reply';
+    this.endpointer.reset();
+    this.endpointer.setStrict(false);
+    this._resetCapture();
+
+    return new Promise((resolve) => {
+      let settled = false;
+      const finish = (v) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        this._replyWaiter = null;
+        resolve(v);
+      };
+      const timer = setTimeout(() => {
+        if (this.capturing) return; // mid-sentence — the endpointer will settle it
+        finish(null);
+      }, timeoutMs);
+      this._replyWaiter = finish;
+    });
+  }
+
+  /**
+   * Their answer to "how are you doing" is small talk, and the greeting answers
+   * "who is this" on its own — so only a hard stop is acted on here. Everything
+   * else falls through to the identification.
+   * @returns {Promise<boolean>} true if the call is over
+   */
+  async _handleOpeningReply({ mulaw, spec }) {
+    let stt = spec ? await spec.promise : null;
+    if (!stt) stt = await this.deps.transcribe(mulaw, { prompt: this.sttPrompt });
+    const text = stt?.text ?? '';
+    const screened = screenTranscript(text);
+    if (!screened.ok) return false;
+
+    const fp = fastPath(screened.text, {});
+    this._log('opening-reply', { text: screened.text, disposition: fp?.disposition ?? null });
+    this.history.push({ role: 'user', content: screened.text });
+
+    if (fp && (fp.disposition === 'DNC' || fp.disposition === 'ABUSE')) {
+      const result = decide(fp.disposition, null, this.state, this.campaign, {});
+      this._recordTurn({
+        turn: 0,
+        transcript: screened.text,
+        disposition: fp.disposition,
+        thought: fp.thought,
+        latencyMs: 0,
+        route: 'fast',
+        prompts: result.prompts,
+      });
+      await this._say(result.prompts, { bargeable: false });
+      await this.deps.hangup(this.callSid);
+      this._end(fp.disposition);
+      return true;
+    }
+
+    // logged so the transcript shows both sides of the small talk
+    this._recordTurn({
       turn: 0,
-      transcript: null,
+      transcript: screened.text,
       disposition: null,
-      thought: null,
+      thought: 'opening small talk',
       latencyMs: 0,
       route: 'open',
-      prompts: openingPrompts,
-      agentText: spokenText(openingPrompts),
-    };
-    this._log('greeting', { agentText: opening.agentText });
-    this.deps.repo?.recordTurn?.(this.deps.callId, opening);
-    this.deps.log?.turn?.(opening);
-    this.stream?.log?.info(
-      { prompts: opening.prompts, said: opening.agentText },
-      `turn 0 | agent: "${ellipsis(opening.agentText)}"`,
-    );
-    await this._say(openingPrompts); // interruptible — people answer over the opener
-    this._listen();
+      prompts: [],
+    });
+    return false;
   }
 
   // ---- audio in ----
@@ -224,6 +295,26 @@ export class CallSession {
       return;
     }
     this.capturing = false;
+
+    // The opening is waiting for them to answer "how are you doing" — hand the
+    // audio over instead of running it through the turn machinery.
+    if (this._replyWaiter) {
+      const waiter = this._replyWaiter;
+      this._replyWaiter = null;
+      const held = this.captureMs;
+      const peak = this.capturePeakRms;
+      const mulaw = Buffer.concat(this.captureChunks);
+      const spec = this._spec;
+      this._spec = null;
+      this._resetCapture();
+      if (held < MIN_UTTERANCE_MS || peak < MIN_CAPTURE_PEAK_RMS) {
+        waiter(null);
+      } else {
+        waiter({ mulaw, spec });
+      }
+      return;
+    }
+
     const mulaw = Buffer.concat(this.captureChunks);
     const peakRms = this.capturePeakRms;
     const heldMs = this.captureMs;
@@ -313,7 +404,7 @@ export class CallSession {
     const result = decide(disposition, decisionMaker, this.state, this.campaign, hints);
     Object.assign(this.state, result.updates);
 
-    const turnRec = {
+    this._recordTurn({
       turn: this.state.turn,
       transcript: loggedTranscript,
       disposition,
@@ -321,11 +412,7 @@ export class CallSession {
       latencyMs: Date.now() - t0,
       route,
       prompts: result.prompts ?? [],
-      agentText: spokenText(result.prompts),
-    };
-    this.deps.repo?.recordTurn?.(this.deps.callId, turnRec);
-    this.deps.log?.turn?.(turnRec);
-    this._logTurn(turnRec);
+    });
 
     if (result.prompts?.length) {
       this.history.push({ role: 'assistant', content: `(plays ${result.prompts.join(', ')})` });
@@ -368,6 +455,10 @@ export class CallSession {
     if (this.done || !prompts?.length) return null;
     if (remember) this.lastPrompts = prompts;
     this._bargeable = bargeable;
+    // While audio is going out we ARE speaking. Without this the opening ran at
+    // phase 'init', so _onSpeechStart's barge check never fired and talking over
+    // the greeting did nothing at all.
+    this.phase = 'speaking';
     this.endpointer.setStrict(true); // reject our own audio echoing back
     const res = await this.playback.play(prompts);
     if (remember && res && !res.completed && res.remaining?.length) {
@@ -393,12 +484,38 @@ export class CallSession {
     this.phase = 'listening';
     this.endpointer.reset();
     this.endpointer.setStrict(false);
+    this._resetCapture();
+    this._spec = null;
+  }
+
+  _resetCapture() {
     this.capturing = false;
     this.captureChunks = [];
     this.captureMs = 0;
     this.capturePeakRms = 0;
     this.preroll = [];
-    this._spec = null;
+  }
+
+  /** Persist one turn and mirror it to the call log and the console. */
+  _recordTurn(rec) {
+    const full = { ...rec, agentText: spokenText(rec.prompts ?? []) };
+    this.deps.repo?.recordTurn?.(this.deps.callId, full);
+    this.deps.log?.turn?.(full);
+    this._logTurn(full);
+    return full;
+  }
+
+  /** A line the agent speaks unprompted (the opener, the identification). */
+  _recordAgentTurn(prompts) {
+    return this._recordTurn({
+      turn: 0,
+      transcript: null,
+      disposition: null,
+      thought: null,
+      latencyMs: 0,
+      route: 'open',
+      prompts,
+    });
   }
 
   _end(finalDisposition, extra = {}) {
@@ -427,8 +544,12 @@ export class CallSession {
    * anything that parses the JSON.
    */
   _logTurn(t) {
-    const caller = ellipsis(t.transcript) || '(nothing intelligible)';
-    const agent = ellipsis(t.agentText) || '(silence)';
+    const parts = [`turn ${t.turn}`];
+    if (t.transcript != null) {
+      parts.push(`caller: "${ellipsis(t.transcript)}"`);
+      parts.push(`${t.disposition ?? '-'} (${t.route}, ${t.latencyMs}ms)`);
+    }
+    if (t.agentText) parts.push(`agent: "${ellipsis(t.agentText)}"`);
     this.stream?.log?.info(
       {
         turn: t.turn,
@@ -439,7 +560,7 @@ export class CallSession {
         prompts: t.prompts,
         said: t.agentText,
       },
-      `turn ${t.turn} | caller: "${caller}" | ${t.disposition} (${t.route}, ${t.latencyMs}ms) | agent: "${agent}"`,
+      parts.join(' | '),
     );
   }
 }

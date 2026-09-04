@@ -205,11 +205,12 @@ function route(disposition, decisionMaker, state, campaign, hints) {
 }
 
 function turn1(disposition, g, s, maxRebuttals, hints) {
-  // NEU / NOSITE / DM → straight to the pitch
+  // NEU / DM → acknowledge what they just told us, then pitch. (NOSITE never
+  // reaches here; it has its own opener that already reacts to the answer.)
   if (g === 'advance') {
     return {
       action: 'continue',
-      prompts: [pitchFor(hints)],
+      prompts: [PROMPTS.great, pitchFor(hints)],
       updates: { turn: 2, pitchDelivered: true },
     };
   }

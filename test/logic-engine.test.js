@@ -12,7 +12,8 @@ const step = (disp, dm, state, hints = {}) => {
 test('turn 1: neutral response advances to the pitch', () => {
   const { r, next } = step('NEU', null, freshState());
   assert.equal(r.action, 'continue');
-  assert.deepEqual(r.prompts, ['pitch-1', 'pitch-2', 'pitch-3']);
+  // the answer is acknowledged before the pitch, not steamrolled
+  assert.deepEqual(r.prompts, ['great', 'pitch-1', 'pitch-2', 'pitch-3']);
   assert.equal(next.turn, 2);
   assert.equal(next.pitchDelivered, true);
 });
@@ -189,12 +190,12 @@ test('"I am busy" gets one save before the pitch, then is respected', () => {
 
 test('a known-old site opens the pitch by naming it', () => {
   const { r } = step('NEU', null, freshState(), { siteAgeYears: 5 });
-  assert.deepEqual(r.prompts, ['pitch-dated', 'pitch-2', 'pitch-3']);
+  assert.deepEqual(r.prompts, ['great', 'pitch-dated', 'pitch-2', 'pitch-3']);
 });
 
 test('a recent site gets the generic pitch, not the dated opener', () => {
   const { r } = step('NEU', null, freshState(), { siteAgeYears: 1 });
-  assert.deepEqual(r.prompts, ['pitch-1', 'pitch-2', 'pitch-3']);
+  assert.deepEqual(r.prompts, ['great', 'pitch-1', 'pitch-2', 'pitch-3']);
 });
 
 test('price and proof questions have their own answers', () => {
