@@ -9,6 +9,7 @@ import { classifyBarge } from '../brain/barge-classifier.js';
 import { fastPath } from '../brain/fast-path.js';
 import { decide, freshState } from '../brain/logic-engine.js';
 import { PROMPTS, ACK_PROMPTS } from '../brain/audio-map.js';
+import { spokenText, ellipsis } from '../audio/prompt-text.js';
 
 const FRAME_BYTES = 320; // 160 samples PCM16 = 20 ms @ 8 kHz
 const PREROLL_FRAMES = 12; // ~240 ms kept before speech-start
@@ -96,7 +97,25 @@ export class CallSession {
     } catch {
       /* never let a warm-up failure touch the call */
     }
-    this._log('greeting');
+    // Turn 0: the agent speaks first, so it is not a "turn" in the state machine
+    // sense, but a transcript that starts mid-conversation is useless.
+    const opening = {
+      turn: 0,
+      transcript: null,
+      disposition: null,
+      thought: null,
+      latencyMs: 0,
+      route: 'open',
+      prompts: [PROMPTS.greeting],
+      agentText: spokenText([PROMPTS.greeting]),
+    };
+    this._log('greeting', { agentText: opening.agentText });
+    this.deps.repo?.recordTurn?.(this.deps.callId, opening);
+    this.deps.log?.turn?.(opening);
+    this.stream?.log?.info(
+      { prompts: opening.prompts, said: opening.agentText },
+      `turn 0 | agent: "${ellipsis(opening.agentText)}"`,
+    );
     await this._say([PROMPTS.greeting]); // interruptible — people answer over the opener
     this._listen();
   }
@@ -282,9 +301,12 @@ export class CallSession {
       thought,
       latencyMs: Date.now() - t0,
       route,
+      prompts: result.prompts ?? [],
+      agentText: spokenText(result.prompts),
     };
     this.deps.repo?.recordTurn?.(this.deps.callId, turnRec);
     this.deps.log?.turn?.(turnRec);
+    this._logTurn(turnRec);
 
     if (result.prompts?.length) {
       this.history.push({ role: 'assistant', content: `(plays ${result.prompts.join(', ')})` });
@@ -378,5 +400,27 @@ export class CallSession {
 
   _log(type, detail) {
     this.deps.log?.event?.(type, detail);
+  }
+
+  /**
+   * One readable line per turn for `pm2 logs` — both sides of the exchange, the
+   * disposition, and which path decided it. Structured fields stay attached for
+   * anything that parses the JSON.
+   */
+  _logTurn(t) {
+    const caller = ellipsis(t.transcript) || '(nothing intelligible)';
+    const agent = ellipsis(t.agentText) || '(silence)';
+    this.stream?.log?.info(
+      {
+        turn: t.turn,
+        heard: t.transcript,
+        disposition: t.disposition,
+        route: t.route,
+        ms: t.latencyMs,
+        prompts: t.prompts,
+        said: t.agentText,
+      },
+      `turn ${t.turn} | caller: "${caller}" | ${t.disposition} (${t.route}, ${t.latencyMs}ms) | agent: "${agent}"`,
+    );
   }
 }

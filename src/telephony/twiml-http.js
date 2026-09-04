@@ -6,6 +6,7 @@ import { healthSnapshot } from '../obs/health.js';
 import { lookupCall } from '../runner/registry.js';
 import { mintVoiceToken } from './voice-token.js';
 import { recentCalls, callDetail } from '../data/call-repo.js';
+import { spokenText } from '../audio/prompt-text.js';
 import { readFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -105,7 +106,18 @@ export function createHttpApp({ runner } = {}) {
     if (!checkKey(req, res)) return;
     const detail = callDetail(req.params.sid);
     if (!detail) return res.status(404).json({ error: 'no such call' });
-    res.json(detail);
+    // Turns store prompt NAMES; resolve them to the words the caller heard so the
+    // viewer can show a real conversation instead of "played reb-ni-2".
+    const turns = detail.turns.map((t) => {
+      let prompts = [];
+      try {
+        prompts = t.prompts ? JSON.parse(t.prompts) : [];
+      } catch {
+        prompts = [];
+      }
+      return { ...t, prompts, agentText: spokenText(prompts) };
+    });
+    res.json({ ...detail, turns });
   });
 
   app.get('/token', (req, res) => {

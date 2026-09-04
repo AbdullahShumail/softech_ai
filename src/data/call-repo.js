@@ -6,8 +6,8 @@ const _insertCall = db.prepare(
 );
 const _callId = db.prepare(`SELECT id FROM calls WHERE call_sid = ?`);
 const _insertTurn = db.prepare(
-  `INSERT INTO call_turns (call_id, turn, transcript, disposition, thought, latency_ms)
-   VALUES (@call_id, @turn, @transcript, @disposition, @thought, @latency_ms)`,
+  `INSERT INTO call_turns (call_id, turn, transcript, disposition, thought, latency_ms, route, prompts)
+   VALUES (@call_id, @turn, @transcript, @disposition, @thought, @latency_ms, @route, @prompts)`,
 );
 const _finalize = db.prepare(
   `UPDATE calls SET
@@ -38,6 +38,8 @@ export function recordTurn(callId, t) {
     disposition: t.disposition ?? null,
     thought: t.thought ?? null,
     latency_ms: t.latencyMs ?? null,
+    route: t.route ?? null,
+    prompts: t.prompts?.length ? JSON.stringify(t.prompts) : null,
   });
 }
 
@@ -63,12 +65,12 @@ export function isDnc(phone) {
 const _recent = db.prepare(
   `SELECT c.id, c.call_sid, c.started_at, c.ended_at, c.answered, c.final_disposition,
           c.pitch_delivered, c.transferred, c.duration_s, l.phone, l.company,
-          (SELECT COUNT(*) FROM call_turns t WHERE t.call_id = c.id) AS turn_count
+          (SELECT COUNT(*) FROM call_turns t WHERE t.call_id = c.id AND t.turn > 0) AS turn_count
      FROM calls c LEFT JOIN leads l ON l.id = c.lead_id
     ORDER BY c.id DESC LIMIT @limit`,
 );
 const _turnsFor = db.prepare(
-  `SELECT turn, transcript, disposition, thought, latency_ms, ts
+  `SELECT turn, transcript, disposition, thought, latency_ms, route, prompts, ts
      FROM call_turns WHERE call_id = @id ORDER BY id ASC`,
 );
 const _bySid = db.prepare(`SELECT * FROM calls WHERE call_sid = ?`);

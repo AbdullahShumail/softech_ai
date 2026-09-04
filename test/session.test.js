@@ -68,9 +68,14 @@ test('media → endpointer → STT → classify → logic → playback loop adva
   stream.onMedia({ payload: payload(40, 15) }); // silence → speech-end
   await delay(20);
 
-  assert.equal(turns.length, 1);
-  assert.equal(turns[0].disposition, 'NEU');
-  assert.equal(turns[0].route, 'llm', 'ambiguous input must reach the classifier');
+  // turn 0 is the agent's greeting; exchanges start at turn 1
+  assert.equal(turns[0].turn, 0, 'the opening line should be recorded');
+  assert.ok(turns[0].agentText.length > 0, 'and should carry the words, not just a name');
+  const exchanges = turns.filter((t) => t.turn > 0);
+  assert.equal(exchanges.length, 1);
+  assert.equal(exchanges[0].disposition, 'NEU');
+  assert.equal(exchanges[0].route, 'llm', 'ambiguous input must reach the classifier');
+  assert.ok(exchanges[0].agentText.length > 0, 'the reply text should be resolved from the script');
   assert.equal(session.state.turn, 2, 'advanced to the pitch');
   assert.equal(session.state.pitchDelivered, true);
   assert.equal(finals.length, 0, 'call still going');
@@ -176,8 +181,9 @@ test('an unambiguous reply never reaches the classifier', async () => {
   await speak(stream);
 
   assert.equal(classifyCalls, 0, 'the fast path should have resolved this turn');
-  assert.equal(seen.turns[0].disposition, 'HAS');
-  assert.equal(seen.turns[0].route, 'fast');
+  const first = seen.turns.find((t) => t.turn > 0);
+  assert.equal(first.disposition, 'HAS');
+  assert.equal(first.route, 'fast');
 });
 
 test('a fast-path turn plays no acknowledgement token', async () => {

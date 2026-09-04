@@ -36,6 +36,8 @@ CREATE TABLE IF NOT EXISTS call_turns (
   disposition  TEXT,
   thought      TEXT,
   latency_ms   INTEGER,
+  route        TEXT,                                -- fast | llm | gate
+  prompts      TEXT,                                -- JSON array of prompt names the agent played
   ts           TEXT NOT NULL DEFAULT (datetime('now'))
 );
 CREATE INDEX IF NOT EXISTS idx_turns_call ON call_turns(call_id);
