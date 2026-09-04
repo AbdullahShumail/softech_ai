@@ -18,6 +18,9 @@ export const PROMPTS = {
   pitchFollowup: 'pitch-followup',
   askDecisionMaker: 'ask-decision-maker',
   transfer: 'transfer',
+  // Played instead of `transfer` when there is no closer to bridge to: the lead
+  // is captured for follow-up rather than promised a hand-off we cannot do.
+  qualifiedCapture: 'close-qualified',
   reprompt: 'reprompt',
   waitAck: 'wait-ack',
   voicemail: 'voicemail-message',

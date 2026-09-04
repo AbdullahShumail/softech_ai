@@ -55,6 +55,7 @@ attachMediaStream(server, (stream) => {
       callId,
       prewarm: prewarmClassifier,
       transfer: transferToCloser,
+      transferEnabled: config.transfer.enabled,
       hangup,
       onFinal: (summary) => {
         const durationS = Math.round((Date.now() - startedAt) / 1000);

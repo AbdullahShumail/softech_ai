@@ -307,3 +307,78 @@ test('an ack longer than the wait it covers is skipped, not played', async () =>
   );
   assert.equal(session.state.turn, 2, 'the turn still completes normally');
 });
+
+test('with no closer configured, a qualified lead is captured, not mis-transferred', async () => {
+  const stream = fakeStream();
+  const finals = [];
+  let transferCalls = 0;
+  let hangupCalls = 0;
+
+  const session = new CallSession({
+    stream,
+    library: fakeLibrary,
+    campaign,
+    callSid: 'CAtest',
+    deps: {
+      transcribe: async () => ({ text: 'well i suppose it depends really' }),
+      classify: async () => ({ disposition: 'QUAL', thought: 'owner, engaged', decisionMaker: true }),
+      transfer: async () => { transferCalls++; },
+      transferEnabled: false, // CLOSER_NUMBER unset or a placeholder
+      hangup: async () => { hangupCalls++; },
+      onFinal: (s) => finals.push(s),
+      log: null,
+      callId: 1,
+    },
+  });
+
+  await session.start();
+  session.state.pitchDelivered = true;
+  stream.onMedia({ payload: payload(6, 6000) });
+  stream.onMedia({ payload: payload(40, 15) });
+  await delay(40);
+
+  assert.equal(transferCalls, 0, 'must not dial a closer that does not exist');
+  assert.equal(hangupCalls, 1, 'the call should end cleanly instead');
+  assert.equal(finals[0].finalDisposition, 'QUAL', 'still a qualified lead');
+  assert.equal(finals[0].transferred, false);
+  assert.equal(finals[0].captured, true);
+  assert.ok(
+    stream.marks.some((m) => m.includes('close-qualified')),
+    'the caller must hear the capture close, not the transfer promise',
+  );
+  assert.ok(
+    !stream.marks.some((m) => m.includes(':transfer')),
+    'must never promise a hand-off it cannot make',
+  );
+});
+
+test('with a real closer configured, the transfer still happens', async () => {
+  const stream = fakeStream();
+  let transferCalls = 0;
+  const finals = [];
+  const session = new CallSession({
+    stream,
+    library: fakeLibrary,
+    campaign,
+    callSid: 'CAtest',
+    deps: {
+      transcribe: async () => ({ text: 'well i suppose it depends really' }),
+      classify: async () => ({ disposition: 'QUAL', thought: 'owner', decisionMaker: true }),
+      transfer: async () => { transferCalls++; },
+      transferEnabled: true,
+      hangup: async () => {},
+      onFinal: (s) => finals.push(s),
+      log: null,
+      callId: 1,
+    },
+  });
+
+  await session.start();
+  session.state.pitchDelivered = true;
+  stream.onMedia({ payload: payload(6, 6000) });
+  stream.onMedia({ payload: payload(40, 15) });
+  await delay(40);
+
+  assert.equal(transferCalls, 1);
+  assert.equal(finals[0].transferred, true);
+});

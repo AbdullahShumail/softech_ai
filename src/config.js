@@ -3,6 +3,13 @@ import 'dotenv/config';
 const num = (v, d) => (v === undefined || v === '' ? d : Number(v));
 const bool = (v, d) => (v === undefined || v === '' ? d : v === 'true');
 
+/** A real E.164 destination, not an unset placeholder. */
+function isRealNumber(n) {
+  const digits = String(n).replace(/[^0-9]/g, '');
+  if (digits.length < 10) return false;
+  return !/^1?0+$/.test(digits);
+}
+
 export const config = {
   env: process.env.NODE_ENV || 'development',
 
@@ -63,6 +70,11 @@ export const config = {
 
   transfer: {
     closerNumber: process.env.CLOSER_NUMBER || '',
+    // A placeholder like +10000000000 passes a truthiness check and then gets
+    // DIALLED, dropping the call at the exact moment it qualified. Treat an
+    // all-zeros number as "no closer", so the bot captures the lead instead of
+    // promising a transfer it cannot make.
+    enabled: isRealNumber(process.env.CLOSER_NUMBER || ''),
   },
 
   callingHours: {

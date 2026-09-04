@@ -51,6 +51,9 @@ export class CallSession {
       classify,
       prewarm: () => {},
       transfer: async () => {},
+      // False when no closer is configured: qualify, capture, and close honestly
+      // rather than promising a hand-off that would drop the call.
+      transferEnabled: true,
       hangup: async () => {},
       onFinal: () => {},
       log: null,
@@ -289,6 +292,13 @@ export class CallSession {
 
     this.phase = 'speaking';
     if (result.action === 'transfer') {
+      if (!this.deps.transferEnabled) {
+        this._log('qualified-captured', { reason: 'no closer configured' });
+        await this._say([PROMPTS.qualifiedCapture], { bargeable: false });
+        await this.deps.hangup(this.callSid);
+        this._end('QUAL', { transferred: false, captured: true });
+        return;
+      }
       await this._say(result.prompts, { bargeable: false });
       await this.deps.transfer(this.callSid);
       this._end('QUAL', { transferred: true });
