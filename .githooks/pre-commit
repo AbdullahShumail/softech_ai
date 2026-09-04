@@ -1,0 +1,20 @@
+#!/bin/sh
+# Blocks committing secrets. Bypass only if you are certain: git commit --no-verify
+fail=0
+
+if git diff --cached --name-only | grep -qE '(^|/)\.env$|(^|/)\.env\.(local|production)$'; then
+  echo "BLOCKED: a .env file is staged. Secrets must never be committed."
+  fail=1
+fi
+
+# Patterns for the credentials this project actually uses.
+patterns='gsk_[A-Za-z0-9]{20,}|SK[0-9a-f]{32}|AC[0-9a-f]{32}|sk-[A-Za-z0-9]{20,}|xox[baprs]-[A-Za-z0-9-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----'
+hits=$(git diff --cached -U0 | grep -nE "^\+" | grep -E "$patterns" | grep -v 'ACxxxx\|SKxxxx\|your_\|example\|placeholder\|00000000')
+if [ -n "$hits" ]; then
+  echo "BLOCKED: staged changes look like they contain a live credential:"
+  echo "$hits" | sed 's/\(.\{100\}\).*/\1.../' | head -5
+  fail=1
+fi
+
+[ "$fail" = "1" ] && echo "" && echo "Put the value in .env (gitignored) and reference it via src/config.js."
+exit $fail

@@ -12,7 +12,9 @@
     "migrate": "node src/data/migrate.js",
     "gen-prompts": "node tools/gen-prompts.mjs",
     "gen-prompts:free": "python3 tools/gen_prompts_edge.py",
-    "verify-prompts": "node scripts/verify-prompts.mjs"
+    "verify-prompts": "node scripts/verify-prompts.mjs",
+    "audit:secrets": "node scripts/audit-secrets.mjs",
+    "prepare": "git config core.hooksPath .githooks || true"
   },
   "engines": {
     "node": ">=20"

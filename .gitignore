@@ -7,3 +7,10 @@ logs/
 *.log
 prompts/**/*.raw
 .DS_Store
+
+# secrets / local state
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
