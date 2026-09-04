@@ -27,6 +27,19 @@ ROOT = Path(__file__).resolve().parent.parent
 SCRIPT = ROOT / "tools" / "prompt-script.json"
 API = "https://api.elevenlabs.io/v1"
 
+# TTS engines emit their own leading and trailing silence, and it varies per clip
+# (ElevenLabs gave us 100-280 ms of lead-in and 320-640 ms of tail on the same
+# settings). Our padding then stacks on top of it, so prompts end with ~300 ms of
+# dead air before the bot starts listening again, and short acks come out too
+# long to be worth playing. Strip whatever the engine left, then pad to a length
+# we actually chose.
+TRIM_SILENCE = (
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:detection=peak,"
+    "areverse,"
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:detection=peak,"
+    "areverse"
+)
+
 # Shared with gen_prompts_edge.py — keep the two in step so a library generated
 # by either engine sounds like it came off the same phone system.
 TELEPHONY_CHAIN = (
@@ -53,7 +66,7 @@ def pad_for(name, head_ms, tail_ms):
 def build_filter(head_ms, tail_ms, tone):
     """Band-limit + compress the speech, then pad it with faint room tone."""
     return (
-        f"[0:a]{TELEPHONY_CHAIN},"
+        f"[0:a]{TRIM_SILENCE},{TELEPHONY_CHAIN},"
         f"adelay={head_ms}|{head_ms},apad=pad_dur={tail_ms / 1000}[sp];"
         f"[1:a]volume={tone}[rt];"
         f"[sp][rt]amix=inputs=2:duration=first:normalize=0,aresample=8000[out]"
@@ -79,14 +92,28 @@ def list_voices(key):
 
 
 def resolve_voice(key, wanted):
-    """Accept either a voice_id or a voice name."""
+    """Accept a voice_id, a full name, or just the short name.
+
+    Library voices are named "Jessica - Playful, Bright, Warm", so an exact match
+    on "Jessica" would fail; match the part before the dash as well.
+    """
     if len(wanted) == 20 and " " not in wanted:
         return wanted  # already an id
-    body, _ = api("/voices", key)
-    for v in json.loads(body).get("voices", []):
-        if v["name"].lower() == wanted.lower():
-            return v["voice_id"]
-    sys.exit(f'voice "{wanted}" not found on this account — run --list-voices')
+
+    want = wanted.lower().strip()
+    voices = json.loads(api("/voices", key)[0]).get("voices", [])
+    for pick in (
+        lambda n: n == want,
+        lambda n: n.split(" - ")[0].strip() == want,
+        lambda n: n.startswith(want),
+    ):
+        hits = [v for v in voices if pick(v["name"].lower())]
+        if len(hits) == 1:
+            return hits[0]["voice_id"]
+        if len(hits) > 1:
+            names = ", ".join(v["name"] for v in hits)
+            sys.exit(f'"{wanted}" is ambiguous - matches: {names}')
+    sys.exit(f'voice "{wanted}" not found on this account - run --list-voices')
 
 
 def synth(key, voice_id, text, model, stability, similarity, style):

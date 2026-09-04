@@ -40,6 +40,19 @@ TELEPHONY_CHAIN = (
     "acompressor=threshold=-18dB:ratio=3:attack=5:release=120,"
     "alimiter=limit=0.95"
 )
+# TTS engines emit their own leading and trailing silence, and it varies per clip
+# (ElevenLabs gave us 100-280 ms of lead-in and 320-640 ms of tail on the same
+# settings). Our padding then stacks on top of it, so prompts end with ~300 ms of
+# dead air before the bot starts listening again, and short acks come out too
+# long to be worth playing. Strip whatever the engine left, then pad to a length
+# we actually chose.
+TRIM_SILENCE = (
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:detection=peak,"
+    "areverse,"
+    "silenceremove=start_periods=1:start_threshold=-45dB:start_silence=0:detection=peak,"
+    "areverse"
+)
+
 # Acks exist to fill a ~650 ms wait. Padded like a normal prompt they would take
 # longer than the wait they cover and make the turn slower, so they get almost none.
 ACK_HEAD_MS, ACK_TAIL_MS = 60, 80
@@ -48,7 +61,7 @@ ACK_HEAD_MS, ACK_TAIL_MS = 60, 80
 def afilter_for(name):
     head, tail = (ACK_HEAD_MS, ACK_TAIL_MS) if name.startswith("ack-") else (args.head_ms, args.tail_ms)
     return (
-        f"[0:a]{TELEPHONY_CHAIN},"
+        f"[0:a]{TRIM_SILENCE},{TELEPHONY_CHAIN},"
         f"adelay={head}|{head},apad=pad_dur={tail / 1000}[sp];"
         f"[1:a]volume={args.room_tone}[rt];"
         f"[sp][rt]amix=inputs=2:duration=first:normalize=0,aresample=8000[out]"

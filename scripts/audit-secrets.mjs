@@ -7,7 +7,8 @@ const PATTERNS = [
   ['Groq API key', /gsk_[A-Za-z0-9]{20,}/],
   ['Twilio API key SID', /SK[0-9a-f]{32}/],
   ['Twilio Account SID', /AC[0-9a-f]{32}/],
-  ['OpenAI key', /sk-[A-Za-z0-9]{20,}/],
+  // sk- is OpenAI, sk_ is ElevenLabs — one pattern covers both
+  ['OpenAI / ElevenLabs key', /sk[-_][A-Za-z0-9]{20,}/],
   ['Private key block', /-----BEGIN [A-Z ]*PRIVATE KEY-----/],
 ];
 const ALLOW = /ACxxxx|SKxxxx|your_|example|placeholder|0{8,}|\$\{|process\.env/;
