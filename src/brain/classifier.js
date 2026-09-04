@@ -15,6 +15,24 @@ function coerceDecisionMaker(v) {
 }
 
 /**
+ * Fire a throwaway request so DNS, TLS and model routing are hot before the
+ * first real turn — that turn is the one that decides whether the call survives.
+ * Fire-and-forget: never awaited, never allowed to throw into the call path.
+ */
+export function prewarmClassifier(client = defaultClient) {
+  if (!config.groq.apiKey) return;
+  client.chat.completions
+    .create({
+      model: config.groq.llmModel,
+      messages: [{ role: 'user', content: 'ok' }],
+      max_tokens: 1,
+      temperature: 0,
+    })
+    .then(() => logger.debug('classifier connection warmed'))
+    .catch((err) => logger.debug({ err: err.message }, 'classifier prewarm failed (harmless)'));
+}
+
+/**
  * Classify one caller utterance into a disposition code.
  * @param {object} args
  * @param {string} args.systemPrompt   from buildClassifierSystemPrompt()

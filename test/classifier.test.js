@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { classify } from '../src/brain/classifier.js';
 import { buildClassifierSystemPrompt } from '../src/brain/classifier-prompt.js';
 import { loadCampaign } from '../src/brain/campaign.js';
+import { DISPOSITION_CODES } from '../src/brain/dispositions.js';
 
 const campaign = loadCampaign('b2b-outreach');
 const sys = buildClassifierSystemPrompt(campaign);
@@ -21,9 +22,18 @@ function fakeClient(content) {
 }
 
 test('system prompt embeds campaign identity and the code table', () => {
-  assert.match(sys, /SofTech AI/);
+  // assert against the config, not a literal — the company name is allowed to change
+  assert.ok(sys.includes(campaign.companyName), 'company name missing from prompt');
+  assert.ok(sys.includes(campaign.agentName), 'agent name missing from prompt');
   assert.match(sys, /- QUAL:/);
   assert.match(sys, /- DNC:/);
+});
+
+test('every disposition code reaches the classifier prompt', () => {
+  // a code the model is never told about can never be returned
+  for (const code of DISPOSITION_CODES) {
+    assert.ok(sys.includes(`- ${code}:`), `${code} missing from the prompt's code table`);
+  }
 });
 
 test('parses a well-formed classifier response', async () => {

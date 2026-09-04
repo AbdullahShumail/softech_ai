@@ -5,6 +5,14 @@
 // a few voiced frames / speech-end after a run of trailing silence. This is the
 // same approach the FreeSWITCH bot used in production; it holds up at 8 kHz on
 // PSTN-quality audio. Silero can slot in later behind the same interface.
+//
+// End-of-speech is reported TWICE. A `provisional` end fires early (~360 ms of
+// silence) so the caller's audio can be sent to STT while we are still waiting
+// to be sure they finished; a `silence` end fires at the real threshold
+// (~700 ms) and is the one that commits. If the caller was only drawing breath
+// and carries on, `speech-resume` fires instead and the speculative work is
+// thrown away. Whisper costs about two cents an hour, so discarding a third of
+// those transcripts is far cheaper than making every caller wait 700 ms.
 
 function rms(pcm16) {
   if (pcm16.length < 2) return 0;
@@ -25,20 +33,31 @@ export class Endpointer {
     this.speechRatio = opts.speechRatio ?? 3.0;
     this.minSpeechRms = opts.minSpeechRms ?? 450;
     this.startFrames = opts.startFrames ?? 6; // ~120 ms to trigger
-    this.endFrames = opts.endFrames ?? 35; // ~700 ms trailing silence to end
+    this.endFrames = opts.endFrames ?? 35; // ~700 ms trailing silence to commit
+    this.provisionalFrames = opts.provisionalFrames ?? 18; // ~360 ms — speculative
     this.maxUtteranceMs = opts.maxUtteranceMs ?? 15000;
+
+    // Speech is not continuous: stops and fricatives leave 20-40 ms dips that
+    // read as silence at 8 kHz. Requiring N *consecutive* voiced frames throws
+    // away the run on every such dip and delays the trigger. Tolerate a short
+    // gap instead — but only one frame of it while the bot is talking, where a
+    // false trigger costs more than a late one.
+    this.startGapFrames = opts.startGapFrames ?? 2;
+    this.strictStartGapFrames = opts.strictStartGapFrames ?? 1;
 
     // Strict mode is used while the BOT is talking. Without it the bot's own
     // audio — echoed back through a speakerphone or a laptop mic — trips the
     // endpointer and gets transcribed as if the caller said it.
-    this.strictStartFrames = opts.strictStartFrames ?? 13; // ~260 ms of real speech
+    this.strictStartFrames = opts.strictStartFrames ?? 9; // ~180 ms of real speech
     this.strictRmsMultiplier = opts.strictRmsMultiplier ?? 2.2;
     this.strict = false;
 
     this.inSpeech = false;
     this._voiced = 0;
+    this._gap = 0;
     this._silent = 0;
     this._utteranceMs = 0;
+    this._provisionalSent = false;
     this.lastRms = 0;
   }
 
@@ -46,6 +65,7 @@ export class Endpointer {
   setStrict(on) {
     this.strict = !!on;
     this._voiced = 0;
+    this._gap = 0;
   }
 
   get threshold() {
@@ -57,9 +77,20 @@ export class Endpointer {
     return this.strict ? this.strictStartFrames : this.startFrames;
   }
 
+  get allowedStartGap() {
+    return this.strict ? this.strictStartGapFrames : this.startGapFrames;
+  }
+
   /**
    * Feed one frame of mono PCM16LE (≈20 ms / 160 samples at 8 kHz).
-   * @returns {null | {type:'speech-start'} | {type:'speech-end', reason:'silence'|'max-duration'}}
+   * @returns {null
+   *   | {type:'speech-start'}
+   *   | {type:'speech-resume'}
+   *   | {type:'speech-end', reason:'provisional'|'silence'|'max-duration'}}
+   *
+   * 'provisional' does NOT leave speech — it is a hint that the utterance is
+   * probably complete. Either 'speech-resume' or a committing 'speech-end'
+   * always follows it.
    */
   push(pcm16) {
     const level = rms(pcm16);
@@ -75,40 +106,63 @@ export class Endpointer {
         this.noiseFloor = this.noiseAlpha * this.noiseFloor + (1 - this.noiseAlpha) * level;
       }
       if (voiced) {
+        this._gap = 0;
         if (++this._voiced >= this.requiredStartFrames) {
           this.inSpeech = true;
           this._voiced = 0;
+          this._gap = 0;
           this._silent = 0;
           this._utteranceMs = 0;
+          this._provisionalSent = false;
           return { type: 'speech-start' };
         }
+      } else if (this._voiced > 0 && ++this._gap <= this.allowedStartGap) {
+        // a dip between syllables — keep the run alive
       } else {
         this._voiced = 0;
+        this._gap = 0;
       }
       return null;
     }
 
     this._utteranceMs += this.frameMs;
+
     if (voiced) {
+      const resumed = this._provisionalSent;
       this._silent = 0;
-    } else if (++this._silent >= this.endFrames) {
-      this.inSpeech = false;
-      this._silent = 0;
-      return { type: 'speech-end', reason: 'silence' };
+      this._provisionalSent = false;
+      if (resumed) return { type: 'speech-resume' };
+    } else {
+      this._silent++;
+      if (this._silent >= this.endFrames) {
+        this._stop();
+        return { type: 'speech-end', reason: 'silence' };
+      }
+      if (!this._provisionalSent && this._silent >= this.provisionalFrames) {
+        this._provisionalSent = true;
+        return { type: 'speech-end', reason: 'provisional' };
+      }
     }
 
     if (this._utteranceMs >= this.maxUtteranceMs) {
-      this.inSpeech = false;
-      this._silent = 0;
+      this._stop();
       return { type: 'speech-end', reason: 'max-duration' };
     }
     return null;
   }
 
+  _stop() {
+    this.inSpeech = false;
+    this._silent = 0;
+    this._provisionalSent = false;
+  }
+
   reset() {
     this.inSpeech = false;
     this._voiced = 0;
+    this._gap = 0;
     this._silent = 0;
     this._utteranceMs = 0;
+    this._provisionalSent = false;
   }
 }

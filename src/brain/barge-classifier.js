@@ -49,7 +49,9 @@ export function classifyBarge(transcript) {
 
   if (STOP_INTENT.some((re) => re.test(n))) return 'STOP';
   if (ANSWER_LIKE.some((re) => re.test(n))) return 'STOP';
-  if (n.includes('?')) return 'STOP';
+  // Test the RAW text: normalizeTranscript strips punctuation, so asking the
+  // normalized string about '?' could never be true.
+  if (String(transcript || '').includes('?')) return 'STOP';
   if (BACKCHANNEL.has(n)) return 'BACKCHANNEL';
   if (SIDE_TALK.some((re) => re.test(n))) return 'SIDE_TALK';
 

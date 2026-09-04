@@ -13,6 +13,7 @@ import { PromptLibrary } from './audio/prompt-library.js';
 import { loadCampaign } from './brain/campaign.js';
 import { allPromptNames } from './brain/audio-map.js';
 import { CallSession } from './call/session.js';
+import { prewarmClassifier } from './brain/classifier.js';
 import { LeadRunner } from './runner/lead-runner.js';
 
 assertRuntimeConfig();
@@ -52,6 +53,7 @@ attachMediaStream(server, (stream) => {
       log,
       repo: { recordTurn },
       callId,
+      prewarm: prewarmClassifier,
       transfer: transferToCloser,
       hangup,
       onFinal: (summary) => {

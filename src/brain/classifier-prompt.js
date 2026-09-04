@@ -19,7 +19,9 @@ ${table}
 
 Rules:
 - A bare answer to the opening question about website age ("5 years", "2019",
-  "we don't have one") is NEU — it is a real answer, never R.
+  "a while back") is NEU — it is a real answer, never R.
+- Having NO website ("we don't have one", "just a Facebook page") is NOSITE, not NEU.
+- A dismissive "too expensive" is BUDGET; a genuine "how much is it?" is PRICE.
 - Exactly one code. If several fit, prefer the most actionable: transfer > objection > callback > question > advance.
 - "is_decision_maker": true if they clearly own the business or decide on web/software; false if they clearly say they do not; null if unknown.
 - Silence, noise, or an unintelligible utterance is R.

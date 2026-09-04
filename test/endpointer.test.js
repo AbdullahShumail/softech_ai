@@ -77,3 +77,87 @@ test('strict mode also raises the loudness bar', () => {
   strict.setStrict(true);
   assert.ok(strict.threshold > relaxed.threshold, `${strict.threshold} !> ${relaxed.threshold}`);
 });
+
+// ---- speculative endpointing ----
+
+test('a provisional end fires early but does not leave speech', () => {
+  const ep = new Endpointer({ startFrames: 2, provisionalFrames: 3, endFrames: 10 });
+  ep.push(frame(4000));
+  ep.push(frame(4000)); // speech-start
+
+  assert.equal(ep.push(frame(20)), null); // 1
+  assert.equal(ep.push(frame(20)), null); // 2
+  assert.deepEqual(ep.push(frame(20)), { type: 'speech-end', reason: 'provisional' });
+  assert.equal(ep.inSpeech, true, 'provisional must not end the utterance');
+});
+
+test('carrying on after a provisional end fires speech-resume', () => {
+  const ep = new Endpointer({ startFrames: 2, provisionalFrames: 3, endFrames: 10 });
+  ep.push(frame(4000));
+  ep.push(frame(4000));
+  for (let i = 0; i < 3; i++) ep.push(frame(20)); // → provisional
+
+  assert.deepEqual(ep.push(frame(4000)), { type: 'speech-resume' });
+  assert.equal(ep.inSpeech, true);
+});
+
+test('provisional fires once per pause, not on every silent frame', () => {
+  const ep = new Endpointer({ startFrames: 2, provisionalFrames: 3, endFrames: 20 });
+  ep.push(frame(4000));
+  ep.push(frame(4000));
+  let provisionals = 0;
+  for (let i = 0; i < 10; i++) {
+    if (ep.push(frame(20))?.reason === 'provisional') provisionals++;
+  }
+  assert.equal(provisionals, 1);
+});
+
+test('a pause then more speech re-arms the provisional', () => {
+  const ep = new Endpointer({ startFrames: 2, provisionalFrames: 3, endFrames: 20 });
+  ep.push(frame(4000));
+  ep.push(frame(4000));
+  for (let i = 0; i < 3; i++) ep.push(frame(20)); // provisional #1
+  ep.push(frame(4000)); // resume
+  let out = null;
+  for (let i = 0; i < 3; i++) out = ep.push(frame(20));
+  assert.deepEqual(out, { type: 'speech-end', reason: 'provisional' }, 'second pause re-arms');
+});
+
+test('silence past endFrames still commits after a provisional', () => {
+  const ep = new Endpointer({ startFrames: 2, provisionalFrames: 3, endFrames: 6 });
+  ep.push(frame(4000));
+  ep.push(frame(4000));
+  let out = null;
+  for (let i = 0; i < 6; i++) out = ep.push(frame(20));
+  assert.deepEqual(out, { type: 'speech-end', reason: 'silence' });
+  assert.equal(ep.inSpeech, false);
+});
+
+// ---- start debounce ----
+
+test('a one-frame dip does not discard the voiced run', () => {
+  const ep = new Endpointer({ startFrames: 4, startGapFrames: 2 });
+  ep.push(frame(4000)); // 1
+  ep.push(frame(4000)); // 2
+  ep.push(frame(20)); // dip — tolerated, run survives
+  ep.push(frame(4000)); // 3
+  assert.deepEqual(ep.push(frame(4000)), { type: 'speech-start' }); // 4
+});
+
+test('a long gap still discards the run', () => {
+  const ep = new Endpointer({ startFrames: 3, startGapFrames: 1 });
+  ep.push(frame(4000));
+  ep.push(frame(4000));
+  ep.push(frame(20));
+  ep.push(frame(20)); // past the tolerance — run is dead
+  ep.push(frame(4000)); // counts as 1 again
+  assert.equal(ep.push(frame(4000)), null); // 2 — not yet
+  assert.deepEqual(ep.push(frame(4000)), { type: 'speech-start' }); // 3
+});
+
+test('strict mode tolerates less gap than relaxed mode', () => {
+  const ep = new Endpointer();
+  assert.equal(ep.allowedStartGap, 2);
+  ep.setStrict(true);
+  assert.equal(ep.allowedStartGap, 1);
+});

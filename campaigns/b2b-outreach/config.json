@@ -2,20 +2,50 @@
   "campaign": "b2b-outreach",
   "displayName": "B2B Software Modernization Outreach",
   "agentName": "Alex",
-  "companyName": "SofTech AI",
+  "companyName": "Softech Innovative Solutions",
   "offering": "custom software, modern websites, and cross-platform mobile apps",
   "objective": "Reach the owner or decision maker at a business with a dated web/digital presence, deliver a short modernization pitch, handle objections, and transfer interested decision makers to a senior consultant.",
-  "identityLine": "This is an automated call from SofTech AI. We build modern websites and business software.",
+  "identityLine": "This is an automated call from Softech Innovative Solutions. We build modern websites and business software.",
   "audio": {
     "basePath": "prompts/b2b-outreach"
   },
   "turnLogic": {
-    "1": { "bulldoze": true, "exceptions": ["DNC", "CB", "TIME", "ABUSE", "AM", "LB", "BOT", "WHO", "R"] },
-    "2": { "bulldoze": true, "exceptions": ["DNC", "CB", "TIME", "ABUSE", "AM", "LB", "QUAL"] },
-    "3": { "bulldoze": false, "maxRebuttals": 3 }
+    "1": {
+      "bulldoze": true,
+      "exceptions": [
+        "DNC",
+        "CB",
+        "ABUSE",
+        "AM",
+        "LB",
+        "BOT",
+        "WHO",
+        "PROOF",
+        "R"
+      ]
+    },
+    "2": {
+      "bulldoze": true,
+      "exceptions": [
+        "DNC",
+        "CB",
+        "ABUSE",
+        "AM",
+        "LB",
+        "QUAL"
+      ]
+    },
+    "3": {
+      "bulldoze": false,
+      "maxRebuttals": 3
+    }
   },
   "transfer": {
-    "requires": ["pitchDelivered", "interested", "decisionMaker"]
+    "requires": [
+      "pitchDelivered",
+      "interested",
+      "decisionMaker"
+    ]
   },
   "crmMapping": {
     "QUAL": "XFER",
@@ -31,6 +61,18 @@
     "ABUSE": "NI",
     "LB": "LB",
     "AM": "AM",
-    "R": "NI"
+    "R": "NI",
+    "NOSITE": "CALLBACK",
+    "SMALL": "NI",
+    "THINK": "CALLBACK",
+    "PRICE": "CALLBACK",
+    "PROOF": "CALLBACK",
+    "NEU": "NI",
+    "DM": "CALLBACK",
+    "BOT": "NI",
+    "WHO": "NI",
+    "HOW": "NI",
+    "EMAIL": "CALLBACK",
+    "WAIT": "NI"
   }
 }

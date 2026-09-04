@@ -1,5 +1,11 @@
 // Outbound prompt playback over Twilio Media Streams.
 //
+// A play() takes a LIST of clips and drops a mark after each one, so the marks
+// Twilio echoes back tell us how many clips the caller actually heard. When a
+// barge-in cuts playback short, the unheard remainder comes back on the resolved
+// promise — that is what lets a "mm-hm" halfway through the pitch resume at the
+// next sentence instead of restarting the whole thing.
+//
 // Twilio buffers outbound `media` and plays it at 8 kHz no matter how fast we
 // send, and `clear` flushes that buffer instantly — so, unlike the FreeSWITCH
 // path, no real-time frame pacer is needed. Per prompt sequence we send the
@@ -15,7 +21,7 @@ export class Playback {
     this.session = session;
     this.library = library;
     this.gen = 0;
-    this.pending = null; // { gen, resolve, finalMark, played }
+    this.pending = null; // { gen, resolve, finalMark, segPrefix, list, completed }
   }
 
   get isPlaying() {
@@ -25,8 +31,10 @@ export class Playback {
   /**
    * Play prompt names in order.
    * @param {string|string[]} names
-   * @returns {Promise<{completed: boolean, played: string[]}>}
+   * @returns {Promise<{completed: boolean, played: string[], remaining: string[]}>}
    *   completed:false — a barge-in or a newer play() superseded this one.
+   *   played    — every clip queued for this play.
+   *   remaining — the clips the caller never heard (empty when completed).
    */
   play(names) {
     this._abort(); // supersede + flush anything in flight
@@ -37,7 +45,7 @@ export class Playback {
       this.session.log?.warn({ prompt: n }, 'prompt missing, skipping');
       return false;
     });
-    if (list.length === 0) return Promise.resolve({ completed: true, played: [] });
+    if (list.length === 0) return Promise.resolve({ completed: true, played: [], remaining: [] });
 
     for (const name of list) {
       const mu = this.library.get(name);
@@ -51,16 +59,21 @@ export class Playback {
     this.session.sendMark(finalMark);
 
     return new Promise((resolve) => {
-      this.pending = { gen, resolve, finalMark, played: list };
+      this.pending = { gen, resolve, finalMark, segPrefix: `seg:${gen}:`, list, completed: 0 };
     });
   }
 
   /** Feed a mark name echoed back by Twilio (wire from session.onMark). */
   onMark(name) {
     const p = this.pending;
-    if (p && p.gen === this.gen && name === p.finalMark) {
+    if (!p || p.gen !== this.gen) return;
+    if (name.startsWith(p.segPrefix)) {
+      p.completed++; // one more clip has finished playing out
+      return;
+    }
+    if (name === p.finalMark) {
       this.pending = null;
-      p.resolve({ completed: true, played: p.played });
+      p.resolve({ completed: true, played: p.list, remaining: [] });
     }
   }
 
@@ -77,6 +90,6 @@ export class Playback {
     const p = this.pending;
     this.pending = null;
     this.session.clear();
-    p.resolve({ completed: false, played: p.played });
+    p.resolve({ completed: false, played: p.list, remaining: p.list.slice(p.completed) });
   }
 }

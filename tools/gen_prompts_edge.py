@@ -5,8 +5,12 @@
     python3 tools/gen_prompts_edge.py --voice en-US-ChristopherNeural --rate -5%
     python3 tools/gen_prompts_edge.py --only greeting,pitch --force
 
-No API key needed. Outputs 8 kHz mono PCM16 WAV (telephony native) via ffmpeg.
-Use tools/gen-prompts.mjs instead once a paid TTS provider is available.
+No API key needed. Outputs 8 kHz mono PCM16 WAV (telephony native) via ffmpeg,
+through the same telephony post-chain as the ElevenLabs generator so a library
+built by either engine sounds like it came off the same phone system.
+
+This is the free fallback. tools/gen_prompts_11labs.py gives noticeably more
+natural delivery and is what the live library should be built with.
 """
 import argparse, json, os, shutil, subprocess, sys, tempfile
 from pathlib import Path
@@ -19,8 +23,36 @@ ap.add_argument("--voice", default="en-US-AndrewNeural")
 ap.add_argument("--rate", default="-4%", help="speech rate, e.g. -10%% slower")
 ap.add_argument("--out", default=os.environ.get("PROMPT_DIR", "prompts/b2b-outreach"))
 ap.add_argument("--only", default=None, help="comma-separated prompt names")
+ap.add_argument("--head-ms", type=int, default=180, help="room tone before the speech")
+ap.add_argument("--tail-ms", type=int, default=250, help="room tone after the speech")
+ap.add_argument("--room-tone", type=float, default=0.004,
+                help="room tone level; 0 disables it and gives digital silence")
 ap.add_argument("--force", action="store_true")
 args = ap.parse_args()
+
+# Band-limit to a phone passband, compress, and pad with faint room tone rather
+# than digital silence — see tools/gen_prompts_11labs.py for why this matters
+# more than the choice of engine.
+TELEPHONY_CHAIN = (
+    "aresample=8000,"
+    "highpass=f=200,"
+    "lowpass=f=3400,"
+    "acompressor=threshold=-18dB:ratio=3:attack=5:release=120,"
+    "alimiter=limit=0.95"
+)
+# Acks exist to fill a ~650 ms wait. Padded like a normal prompt they would take
+# longer than the wait they cover and make the turn slower, so they get almost none.
+ACK_HEAD_MS, ACK_TAIL_MS = 60, 80
+
+
+def afilter_for(name):
+    head, tail = (ACK_HEAD_MS, ACK_TAIL_MS) if name.startswith("ack-") else (args.head_ms, args.tail_ms)
+    return (
+        f"[0:a]{TELEPHONY_CHAIN},"
+        f"adelay={head}|{head},apad=pad_dur={tail / 1000}[sp];"
+        f"[1:a]volume={args.room_tone}[rt];"
+        f"[sp][rt]amix=inputs=2:duration=first:normalize=0,aresample=8000[out]"
+    )
 
 if not shutil.which("ffmpeg"):
     sys.exit("ffmpeg not found on PATH — needed to convert MP3 to 8 kHz mono WAV")
@@ -56,6 +88,8 @@ for name in names:
             )
             subprocess.run(
                 ["ffmpeg", "-y", "-loglevel", "error", "-i", str(mp3),
+                 "-f", "lavfi", "-i", "anoisesrc=c=pink:r=8000",
+                 "-filter_complex", afilter_for(name), "-map", "[out]",
                  "-ar", "8000", "-ac", "1", "-c:a", "pcm_s16le", str(wav)],
                 check=True, capture_output=True, timeout=120,
             )

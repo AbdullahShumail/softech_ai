@@ -14,3 +14,7 @@ prompts/**/*.raw
 *.pem
 *.key
 secrets/
+
+# python
+__pycache__/
+*.pyc
